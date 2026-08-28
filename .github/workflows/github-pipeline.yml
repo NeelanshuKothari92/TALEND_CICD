@@ -84,7 +84,7 @@ jobs:
             Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
           # Add Maven to GitHub Actions PATH
-          $mavenHome |
+          $mavenHome\bin |
             Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
           # Add GPG to GitHub Actions PATH
