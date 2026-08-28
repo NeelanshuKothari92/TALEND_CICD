@@ -31,92 +31,78 @@ env:
   # Publish to Talend Cloud
   MAVEN_PLUGIN: "-Pcloud-publisher"
 
-
 jobs:
 
-  # ============================================================
-  # BUILD AND DEPLOY TALEND PROJECT
-  # ============================================================
   display-variables:
-
     name: launch build & deploy
 
     # GitHub Environment
-    # Provides environment-level secrets and variables
     environment: Dev
 
-    # Windows self-hosted GitHub runner
+    # Windows self-hosted runner
     runs-on: self-hosted
 
     steps:
 
-      # ========================================================
+      ############################################################
       # CONFIGURE JAVA, MAVEN AND GPG
-      # ========================================================
+      ############################################################
+
       - name: Configure Java, Maven and GPG
         shell: powershell
         run: |
-
           $javaHome = "C:\Program Files\Java\jdk-17"
           $mavenHome = "C:\apache-maven-3.9.16-bin\apache-maven-3.9.16"
-          $gpgHome = "C:\Program Files\GnuPG\bin"
+          $mavenBin = Join-Path $mavenHome "bin"
 
-          Write-Host "Checking Java..."
-          if (-not (Test-Path "$javaHome\bin\java.exe")) {
-              Write-Error "Java not found at $javaHome\bin\java.exe"
-              exit 1
-          }
-
-          Write-Host "Checking Maven..."
-          if (-not (Test-Path "$mavenHome\bin\mvn.cmd")) {
-              Write-Error "Maven not found at $mavenHome\bin\mvn.cmd"
-              exit 1
-          }
-
-          Write-Host "Checking GPG..."
-          if (-not (Test-Path "$gpgHome\gpg.exe")) {
-              Write-Error "GPG not found at $gpgHome\gpg.exe"
-              exit 1
-          }
-
-          # Set JAVA_HOME for subsequent steps
-          "JAVA_HOME=$javaHome" |
-            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-          # Add Maven to GitHub Actions PATH
-          $mavenHome\bin |
-            Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-
-          # Add GPG to GitHub Actions PATH
-          $gpgHome |
-            Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-
-          Write-Host ""
-          Write-Host "Java Home : $javaHome"
+          Write-Host "Java Home: $javaHome"
           Write-Host "Maven Home: $mavenHome"
-          Write-Host "GPG Home  : $gpgHome"
-          Write-Host ""
+          Write-Host "Maven Bin: $mavenBin"
 
+          # Set JAVA_HOME
+          "JAVA_HOME=$javaHome" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Append `
+            -Encoding utf8
+
+          # Set MAVEN_HOME
+          "MAVEN_HOME=$mavenHome" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Append `
+            -Encoding utf8
+
+          # Add Java and Maven to PATH for all following steps
+          "$javaHome\bin" | Out-File `
+            -FilePath $env:GITHUB_PATH `
+            -Append `
+            -Encoding utf8
+
+          "$mavenBin" | Out-File `
+            -FilePath $env:GITHUB_PATH `
+            -Append `
+            -Encoding utf8
+
+          Write-Host ""
           Write-Host "Java version:"
           & "$javaHome\bin\java.exe" -version
 
           Write-Host ""
           Write-Host "Maven version:"
-          & "$mavenHome\bin\mvn.cmd" -version
+          & "$mavenBin\mvn.cmd" -version
 
           Write-Host ""
           Write-Host "GPG version:"
-          & "$gpgHome\gpg.exe" --version
+          gpg --version
 
 
-      # ========================================================
+      ############################################################
       # SET MAVEN_OPTS FOR TALEND CLOUD
-      # ========================================================
+      ############################################################
+
       - name: set MAVEN_OPTS variable for Talend
         shell: powershell
         working-directory: ${{ runner.temp }}
         run: |
-
           $MAVEN_OPTS = @(
             "-Dinstaller.clean=true"
             "-Dlicense.path=${{ env.CI_REPO_NAME }}/license"
@@ -135,18 +121,20 @@ jobs:
             "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
           ) -join " "
 
-          "MAVEN_OPTS=$MAVEN_OPTS" |
-            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "MAVEN_OPTS=$MAVEN_OPTS" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Append `
+            -Encoding utf8
 
 
-      # ========================================================
+      ############################################################
       # DISPLAY VARIABLES
-      # ========================================================
+      ############################################################
+
       - name: display variables
         shell: powershell
         working-directory: ${{ runner.temp }}
         run: |
-
           Write-Host "**************************** VARIABLES ****************************"
 
           Write-Host "ARTIFACT_URL: ${{ vars.ARTIFACT_URL }}"
@@ -160,15 +148,21 @@ jobs:
           Write-Host "CI_SERVER_HOST: ${{ vars.CI_SERVER_HOST }}"
           Write-Host "CI_REPO_NAME: ${{ env.CI_REPO_NAME }}"
           Write-Host "MAVEN_SETTINGS: ${{ env.MAVEN_SETTINGS }}"
+          Write-Host "MAVEN_HOME: $env:MAVEN_HOME"
+          Write-Host "JAVA_HOME: $env:JAVA_HOME"
 
-          Write-Host "MAVEN_OPTS has been configured"
+          Write-Host ""
+          Write-Host "Maven:"
+          mvn -version
 
+          Write-Host ""
           Write-Host "********************************************************************"
 
 
-      # ========================================================
+      ############################################################
       # CHECKOUT TALEND PROJECT
-      # ========================================================
+      ############################################################
+
       - name: Git Checkout
         uses: actions/checkout@v3
         with:
@@ -176,17 +170,21 @@ jobs:
           ref: ${{ env.GIT_MAIN_PROJECT_BRANCH }}
 
 
-      # ========================================================
+      ############################################################
       # DECRYPT LICENSE AND MAVEN SETTINGS
-      # ========================================================
+      ############################################################
+
       - name: decrypt files
         shell: powershell
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
         run: |
 
-          Write-Host "Decrypting Talend license..."
+          Write-Host "Decrypting license.gpg..."
 
-          gpg --quiet --batch --yes `
+          gpg --quiet `
+            --batch `
+            --yes `
+            --pinentry-mode loopback `
             --decrypt `
             --passphrase="${{ secrets.LARGE_SECRET_PASSPHRASE }}" `
             --output "${{ env.CI_REPO_NAME }}\license" `
@@ -199,9 +197,12 @@ jobs:
 
           Write-Host "License decrypted successfully."
 
-          Write-Host "Decrypting Maven settings..."
+          Write-Host "Decrypting maven_settings.xml.gpg..."
 
-          gpg --quiet --batch --yes `
+          gpg --quiet `
+            --batch `
+            --yes `
+            --pinentry-mode loopback `
             --decrypt `
             --passphrase="${{ secrets.LARGE_SECRET_PASSPHRASE }}" `
             --output "${{ env.CI_REPO_NAME }}\${{ env.MAVEN_SETTINGS }}" `
@@ -213,12 +214,12 @@ jobs:
           }
 
           Write-Host "Maven settings decrypted successfully."
-          Write-Host "Decryption completed successfully."
 
 
-      # ========================================================
+      ############################################################
       # INSTALL P2 AND GENERATE POMS
-      # ========================================================
+      ############################################################
+
       - name: install P2 and generate poms
         shell: powershell
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
@@ -228,7 +229,7 @@ jobs:
           mvn -version
 
           Write-Host ""
-          Write-Host "Installing P2 and generating POMs..."
+          Write-Host "Starting P2 installation and POM generation..."
 
           mvn `
             -s "${{ env.CI_REPO_NAME }}\${{ env.MAVEN_SETTINGS }}" `
@@ -250,9 +251,10 @@ jobs:
           Write-Host "P2 installation and POM generation completed successfully."
 
 
-      # ========================================================
+      ############################################################
       # BUILD AND DEPLOY TO TALEND CLOUD
-      # ========================================================
+      ############################################################
+
       - name: build and deploy to artifact repository
         shell: powershell
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
