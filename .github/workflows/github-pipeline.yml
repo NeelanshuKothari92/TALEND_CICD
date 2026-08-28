@@ -2,6 +2,9 @@
 # TALEND CI/CD - GITHUB ACTIONS
 # ============================================================
 
+name: Talend CI/CD
+
+# Controls when the workflow will run
 on:
   workflow_dispatch:
 
@@ -9,27 +12,69 @@ on:
     branches:
       - main
 
+
 # ============================================================
 # GLOBAL VARIABLES
 # ============================================================
 
 env:
+
+  # GitHub runner
   GITHUB_RUNNER: "self-hosted"
 
+  # ----------------------------------------------------------
+  # Talend project directory
+  # ----------------------------------------------------------
+  #
+  # GitHub repository structure:
+  #
+  # TALEND_CICD
+  #   └── talend_cicd
+  #       ├── process
+  #       ├── context
+  #       ├── talend.project
+  #       ├── sample_pom.xml
+  #       ├── license.gpg
+  #       └── maven_settings.xml.gpg
+  #
   PROJECT_NAME: "talend_cicd"
+
+  # CI files are also located inside talend_cicd
   CI_REPO_NAME: "talend_cicd"
+
+
+  # ----------------------------------------------------------
+  # Git configuration
+  # ----------------------------------------------------------
 
   GIT_MAIN_PROJECT_BRANCH: "main"
   GIT_MAIN_PROJECT_PATH: "main"
 
+
+  # ----------------------------------------------------------
+  # Talend artifact to build
+  # ----------------------------------------------------------
+
   JOB_LIST: "jobs/process/mydemo_0.1"
 
+
+  # ----------------------------------------------------------
+  # Maven settings
+  # ----------------------------------------------------------
+
   MAVEN_SETTINGS: "maven_settings.xml"
+
+
+  # ----------------------------------------------------------
+  # Talend Cloud
+  # ----------------------------------------------------------
 
   TALEND_CLOUD_ENV: "Dev"
   TALEND_CLOUD_WORKSPACE: "Cloud_Run"
 
+  # Talend Cloud publisher
   MAVEN_PLUGIN: "-Pcloud-publisher"
+
 
 # ============================================================
 # JOBS
@@ -41,9 +86,12 @@ jobs:
 
     name: Talend Build & Deploy
 
+    # GitHub Environment
     environment: Dev
 
+    # Windows self-hosted runner
     runs-on: self-hosted
+
 
     steps:
 
@@ -53,6 +101,7 @@ jobs:
 
       - name: Configure Java, Maven and GPG
         shell: powershell
+
         run: |
 
           $javaHome = "C:\Program Files\Java\jdk-17"
@@ -63,21 +112,25 @@ jobs:
           Write-Host "Configuring Java, Maven and GPG"
           Write-Host "=============================================="
 
+          # JAVA_HOME
           "JAVA_HOME=$javaHome" | Out-File `
             -FilePath $env:GITHUB_ENV `
             -Append `
             -Encoding utf8
 
+          # MAVEN_HOME
           "MAVEN_HOME=$mavenHome" | Out-File `
             -FilePath $env:GITHUB_ENV `
             -Append `
             -Encoding utf8
 
+          # Add Java to PATH
           "$javaHome\bin" | Out-File `
             -FilePath $env:GITHUB_PATH `
             -Append `
             -Encoding utf8
 
+          # Add Maven to PATH
           "$mavenBin" | Out-File `
             -FilePath $env:GITHUB_PATH `
             -Append `
@@ -95,23 +148,52 @@ jobs:
           Write-Host "GPG version:"
           gpg --version
 
+
       # ======================================================
       # 2. CHECKOUT TALEND PROJECT
       # ======================================================
 
       - name: Git Checkout
         uses: actions/checkout@v4
+
         with:
           path: ${{ env.GIT_MAIN_PROJECT_PATH }}
           ref: ${{ env.GIT_MAIN_PROJECT_BRANCH }}
 
+
       # ======================================================
-      # 3. SET MAVEN OPTIONS
+      # 3. CHECK TALEND CI VARIABLES
+      # ======================================================
+
+      - name: Check Talend CI variables
+        shell: powershell
+
+        run: |
+
+          Write-Host ""
+          Write-Host "=============================================="
+          Write-Host "Checking Talend CI variables"
+          Write-Host "=============================================="
+
+          Write-Host ""
+          Write-Host "P2_BASE_URL = '${{ vars.P2_BASE_URL }}'"
+          Write-Host "P2_UPDATE_URL = '${{ vars.P2_UPDATE_URL }}'"
+          Write-Host "P2_INSTALLER_PATH = '${{ vars.P2_INSTALLER_PATH }}'"
+          Write-Host "CI_PRODUCT_PATH = '${{ vars.CI_PRODUCT_PATH }}'"
+
+          Write-Host ""
+          Write-Host "=============================================="
+
+
+      # ======================================================
+      # 4. SET MAVEN OPTIONS
       # ======================================================
 
       - name: Set MAVEN_OPTS for Talend Cloud
         shell: powershell
+
         working-directory: ${{ runner.temp }}
+
         run: |
 
           Write-Host "=============================================="
@@ -119,9 +201,7 @@ jobs:
           Write-Host "=============================================="
 
           $mavenOpts = @(
-            "-Dinstaller.clean=true"
             "-Dlicense.path=${{ env.CI_REPO_NAME }}/license"
-            "-Dtalend.studio.p2.base=${{ vars.P2_BASE_URL }}"
             "-Dtalend.studio.p2.update=${{ vars.P2_UPDATE_URL }}"
             "-Dgeneration.type=local"
             "-Dservice.url=${{ vars.TALEND_CLOUD_URL }}"
@@ -143,24 +223,9 @@ jobs:
             -Append `
             -Encoding utf8
 
+          Write-Host ""
           Write-Host "MAVEN_OPTS configured successfully."
 
-      # ======================================================
-      # 4. CHECK TALEND CI VARIABLES
-      # ======================================================
-
-      - name: Check Talend CI variables
-        shell: powershell
-        run: |
-
-          Write-Host "=============================================="
-          Write-Host "Talend CI Variables"
-          Write-Host "=============================================="
-
-          Write-Host "P2_BASE_URL = '${{ vars.P2_BASE_URL }}'"
-          Write-Host "P2_UPDATE_URL = '${{ vars.P2_UPDATE_URL }}'"
-          Write-Host "P2_INSTALLER_PATH = '${{ vars.P2_INSTALLER_PATH }}'"
-          Write-Host "CI_PRODUCT_PATH = '${{ vars.CI_PRODUCT_PATH }}'"
 
       # ======================================================
       # 5. DISPLAY CONFIGURATION
@@ -168,6 +233,7 @@ jobs:
 
       - name: Display variables
         shell: powershell
+
         run: |
 
           Write-Host ""
@@ -193,6 +259,8 @@ jobs:
           Write-Host "BUILDER_MAVEN_PLUGIN_VERSION: ${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}"
           Write-Host "P2_BASE_URL: ${{ vars.P2_BASE_URL }}"
           Write-Host "P2_UPDATE_URL: ${{ vars.P2_UPDATE_URL }}"
+          Write-Host "P2_INSTALLER_PATH: ${{ vars.P2_INSTALLER_PATH }}"
+          Write-Host "CI_PRODUCT_PATH: ${{ vars.CI_PRODUCT_PATH }}"
 
           Write-Host ""
           Write-Host "JAVA_HOME: $env:JAVA_HOME"
@@ -205,13 +273,210 @@ jobs:
           Write-Host ""
           Write-Host "======================================================"
 
+
       # ======================================================
-      # 6. VERIFY TALEND PROJECT STRUCTURE
+      # 6. VERIFY TALEND INSTALLATION
+      # ======================================================
+
+      - name: Validate Talend installation
+        shell: powershell
+
+        run: |
+
+          Write-Host ""
+          Write-Host "=============================================="
+          Write-Host "Validating Talend installation"
+          Write-Host "=============================================="
+
+          $productPath = "${{ vars.CI_PRODUCT_PATH }}"
+          $p2Path = "${{ vars.P2_INSTALLER_PATH }}"
+
+          Write-Host ""
+          Write-Host "CI_PRODUCT_PATH:"
+          Write-Host $productPath
+
+          Write-Host ""
+          Write-Host "P2_INSTALLER_PATH:"
+          Write-Host $p2Path
+
+          # --------------------------------------------------
+          # Product directory
+          # --------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking CI_PRODUCT_PATH..."
+
+          if (!(Test-Path $productPath)) {
+            Write-Error "Talend product directory does not exist: $productPath"
+            exit 1
+          }
+
+          Write-Host "Product directory exists: True"
+
+
+          # --------------------------------------------------
+          # P2 directory
+          # --------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking P2_INSTALLER_PATH..."
+
+          if (!(Test-Path $p2Path)) {
+            Write-Error "P2 directory does not exist: $p2Path"
+            exit 1
+          }
+
+          Write-Host "P2 directory exists: True"
+
+
+          # --------------------------------------------------
+          # Talend executable
+          # --------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking Talend executable..."
+
+          $talendExe = Join-Path $productPath "Talend-Studio-win-x86_64.exe"
+
+          if (!(Test-Path $talendExe)) {
+            Write-Error "Talend executable not found: $talendExe"
+            exit 1
+          }
+
+          Write-Host "Talend executable exists: True"
+
+
+          # --------------------------------------------------
+          # CommandLine BAT
+          # --------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking commandline.bat..."
+
+          $commandLineBat = Join-Path $productPath "commandline.bat"
+
+          if (!(Test-Path $commandLineBat)) {
+            Write-Error "commandline.bat not found: $commandLineBat"
+            exit 1
+          }
+
+          Write-Host "commandline.bat exists: True"
+
+
+          # --------------------------------------------------
+          # CommandLine plugin
+          # --------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking Talend CommandLine plugin..."
+
+          $commandLinePlugin = Get-ChildItem `
+            (Join-Path $productPath "plugins") `
+            -Filter "org.talend.commandline_*.jar" `
+            -File `
+            -ErrorAction SilentlyContinue
+
+          if ($null -eq $commandLinePlugin) {
+            Write-Error "org.talend.commandline plugin was not found."
+            exit 1
+          }
+
+          $commandLinePlugin | ForEach-Object {
+            Write-Host $_.Name
+          }
+
+
+          # --------------------------------------------------
+          # bundles.info
+          # --------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking bundles.info registration..."
+
+          $bundlesInfo = Join-Path `
+            $productPath `
+            "configuration\org.eclipse.equinox.simpleconfigurator\bundles.info"
+
+          if (!(Test-Path $bundlesInfo)) {
+            Write-Error "bundles.info not found: $bundlesInfo"
+            exit 1
+          }
+
+          $registration = Select-String `
+            -Path $bundlesInfo `
+            -Pattern "org.talend.commandline,"
+
+          if ($null -eq $registration) {
+            Write-Error "org.talend.commandline is NOT registered in bundles.info."
+            exit 1
+          }
+
+          Write-Host "CommandLine registration found:"
+          $registration | ForEach-Object {
+            Write-Host $_.Line
+          }
+
+
+          Write-Host ""
+          Write-Host "=============================================="
+          Write-Host "Talend installation validation completed."
+          Write-Host "=============================================="
+
+
+      # ======================================================
+      # 7. TEST TALEND COMMANDLINE DIRECTLY
+      # ======================================================
+
+      - name: Test Talend CommandLine
+        shell: powershell
+
+        run: |
+
+          Write-Host ""
+          Write-Host "=============================================="
+          Write-Host "Testing Talend CommandLine"
+          Write-Host "=============================================="
+
+          $productPath = "${{ vars.CI_PRODUCT_PATH }}"
+          $commandLineBat = Join-Path $productPath "commandline.bat"
+
+          if (!(Test-Path $commandLineBat)) {
+            Write-Error "commandline.bat not found: $commandLineBat"
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "CommandLine:"
+          Write-Host $commandLineBat
+
+          Write-Host ""
+          Write-Host "Starting CommandLine..."
+
+          & $commandLineBat
+
+          $exitCode = $LASTEXITCODE
+
+          Write-Host ""
+          Write-Host "CommandLine exit code: $exitCode"
+
+          if ($exitCode -ne 0) {
+            Write-Error "Talend CommandLine failed with exit code $exitCode"
+            exit $exitCode
+          }
+
+          Write-Host ""
+          Write-Host "Talend CommandLine test completed successfully."
+
+
+      # ======================================================
+      # 8. VERIFY TALEND PROJECT STRUCTURE
       # ======================================================
 
       - name: Verify Talend project structure
         shell: powershell
+
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
+
         run: |
 
           Write-Host ""
@@ -249,131 +514,26 @@ jobs:
           Write-Host ""
           Write-Host "Talend project structure verified successfully."
 
-      # ======================================================
-      # 7. VALIDATE TALEND INSTALLATION ON RUNNER
-      # ======================================================
-
-      - name: Validate Talend installation
-        shell: powershell
-        run: |
-
-          Write-Host ""
-          Write-Host "=============================================="
-          Write-Host "Validating Talend installation"
-          Write-Host "=============================================="
-
-          $productPath = "${{ vars.CI_PRODUCT_PATH }}"
-          $p2Path = "${{ vars.P2_INSTALLER_PATH }}"
-
-          Write-Host ""
-          Write-Host "CI_PRODUCT_PATH:"
-          Write-Host $productPath
-
-          Write-Host ""
-          Write-Host "P2_INSTALLER_PATH:"
-          Write-Host $p2Path
-
-          Write-Host ""
-          Write-Host "Checking CI_PRODUCT_PATH..."
-
-          if (!(Test-Path $productPath)) {
-            Write-Error "Talend product directory does not exist: $productPath"
-            exit 1
-          }
-
-          Write-Host "Product directory exists: True"
-
-          Write-Host ""
-          Write-Host "Checking P2_INSTALLER_PATH..."
-
-          if (!(Test-Path $p2Path)) {
-            Write-Error "P2 directory does not exist: $p2Path"
-            exit 1
-          }
-
-          Write-Host "P2 directory exists: True"
-
-          Write-Host ""
-          Write-Host "Checking Talend executable..."
-
-          $talendExe = Join-Path $productPath "Talend-Studio-win-x86_64.exe"
-
-          if (!(Test-Path $talendExe)) {
-            Write-Error "Talend executable not found: $talendExe"
-            exit 1
-          }
-
-          Write-Host "Talend executable exists: True"
-
-          Write-Host ""
-          Write-Host "Checking commandline.bat..."
-
-          $commandLineBat = Join-Path $productPath "commandline.bat"
-
-          if (!(Test-Path $commandLineBat)) {
-            Write-Error "commandline.bat not found: $commandLineBat"
-            exit 1
-          }
-
-          Write-Host "commandline.bat exists: True"
-
-          Write-Host ""
-          Write-Host "Checking Talend CommandLine plugin..."
-
-          $commandLinePlugin = Get-ChildItem `
-            "$productPath\plugins" `
-            -Filter "org.talend.commandline_*.jar" `
-            -ErrorAction SilentlyContinue
-
-          if (!$commandLinePlugin) {
-            Write-Error "Talend CommandLine plugin was not found."
-            exit 1
-          }
-
-          $commandLinePlugin | Select-Object Name
-
-          Write-Host ""
-          Write-Host "Checking bundles.info registration..."
-
-          $bundlesInfo = "$productPath\configuration\org.eclipse.equinox.simpleconfigurator\bundles.info"
-
-          if (!(Test-Path $bundlesInfo)) {
-            Write-Error "bundles.info not found: $bundlesInfo"
-            exit 1
-          }
-
-          $registration = Select-String `
-            -Path $bundlesInfo `
-            -Pattern "org.talend.commandline," `
-            -ErrorAction SilentlyContinue
-
-          if (!$registration) {
-            Write-Error "org.talend.commandline is not registered in bundles.info."
-            exit 1
-          }
-
-          $registration | ForEach-Object {
-            Write-Host $_.Line
-          }
-
-          Write-Host ""
-          Write-Host "=============================================="
-          Write-Host "Talend installation validation completed."
-          Write-Host "=============================================="
 
       # ======================================================
-      # 8. DECRYPT LICENSE AND MAVEN SETTINGS
+      # 9. DECRYPT LICENSE AND MAVEN SETTINGS
       # ======================================================
 
       - name: Decrypt license and Maven settings
         shell: powershell
+
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
+
         run: |
 
           Write-Host ""
           Write-Host "=============================================="
           Write-Host "Decrypting Talend CI files"
           Write-Host "=============================================="
+
+          # --------------------------------------------------
+          # Decrypt Talend license
+          # --------------------------------------------------
 
           Write-Host ""
           Write-Host "Decrypting license.gpg..."
@@ -395,6 +555,11 @@ jobs:
 
           Write-Host "License decrypted successfully."
 
+
+          # --------------------------------------------------
+          # Decrypt Maven settings
+          # --------------------------------------------------
+
           Write-Host ""
           Write-Host "Decrypting maven_settings.xml.gpg..."
 
@@ -415,19 +580,45 @@ jobs:
 
           Write-Host "Maven settings decrypted successfully."
 
+
       # ======================================================
-      # 9. INSTALL P2 AND GENERATE POMS
+      # 10. INSTALL P2 AND GENERATE POMS
       # ======================================================
 
       - name: Install P2 and generate POMs
         shell: powershell
+
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
+
         run: |
 
           Write-Host ""
           Write-Host "=============================================="
           Write-Host "Installing P2 and generating POMs"
           Write-Host "=============================================="
+
+          Write-Host ""
+          Write-Host "P2 Base URL:"
+          Write-Host "${{ vars.P2_BASE_URL }}"
+
+          Write-Host ""
+          Write-Host "P2 Update URL:"
+          Write-Host "${{ vars.P2_UPDATE_URL }}"
+
+          Write-Host ""
+          Write-Host "P2 Installer:"
+          Write-Host "${{ vars.P2_INSTALLER_PATH }}"
+
+          Write-Host ""
+          Write-Host "Talend Product:"
+          Write-Host "${{ vars.CI_PRODUCT_PATH }}"
+
+          Write-Host ""
+          Write-Host "Builder version:"
+          Write-Host "${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}"
+
+          Write-Host ""
+          Write-Host "Starting Maven generateAllPoms..."
 
           mvn `
             -s "${{ env.CI_REPO_NAME }}\${{ env.MAVEN_SETTINGS }}" `
@@ -448,13 +639,16 @@ jobs:
           Write-Host ""
           Write-Host "P2 installation and POM generation completed."
 
+
       # ======================================================
-      # 10. VERIFY GENERATED POM
+      # 11. VERIFY GENERATED POM
       # ======================================================
 
       - name: Verify generated POM
         shell: powershell
+
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
+
         run: |
 
           Write-Host ""
@@ -473,13 +667,16 @@ jobs:
           Write-Host "Generated POM found:"
           Write-Host $pomPath
 
+
       # ======================================================
-      # 11. BUILD AND DEPLOY TO TALEND CLOUD
+      # 12. BUILD AND DEPLOY TO TALEND CLOUD
       # ======================================================
 
       - name: Build and deploy to Talend Cloud
         shell: powershell
+
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
+
         run: |
 
           Write-Host ""
