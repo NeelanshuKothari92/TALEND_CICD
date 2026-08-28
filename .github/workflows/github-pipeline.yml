@@ -240,7 +240,7 @@ jobs:
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000" `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000" `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000" `
-            "-Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5"
+            "-Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=10"
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Maven POM generation failed."
