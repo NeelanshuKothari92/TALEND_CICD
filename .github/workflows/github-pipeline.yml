@@ -2,9 +2,6 @@
 # TALEND CI/CD - GITHUB ACTIONS
 # ============================================================
 
-name: Talend CI/CD
-
-# Controls when the workflow will run
 on:
   workflow_dispatch:
 
@@ -19,51 +16,31 @@ on:
 
 env:
 
-  # GitHub runner
-  GITHUB_RUNNER: "self-hosted"
+  # ----------------------------------------------------------
+  # Talend project
+  # ----------------------------------------------------------
 
-  # ----------------------------------------------------------
-  # Talend project directory
-  # ----------------------------------------------------------
-  #
-  # GitHub repository structure:
-  #
-  # TALEND_CICD
-  #   └── talend_cicd
-  #       ├── process
-  #       ├── context
-  #       ├── talend.project
-  #       ├── sample_pom.xml
-  #       ├── license.gpg
-  #       └── maven_settings.xml.gpg
-  #
   PROJECT_NAME: "talend_cicd"
-
-  # CI files are also located inside talend_cicd
   CI_REPO_NAME: "talend_cicd"
 
-
   # ----------------------------------------------------------
-  # Git configuration
+  # Git
   # ----------------------------------------------------------
 
   GIT_MAIN_PROJECT_BRANCH: "main"
   GIT_MAIN_PROJECT_PATH: "main"
 
-
   # ----------------------------------------------------------
-  # Talend artifact to build
+  # Talend artifact
   # ----------------------------------------------------------
 
   JOB_LIST: "jobs/process/mydemo_0.1"
 
-
   # ----------------------------------------------------------
-  # Maven settings
+  # Maven
   # ----------------------------------------------------------
 
   MAVEN_SETTINGS: "maven_settings.xml"
-
 
   # ----------------------------------------------------------
   # Talend Cloud
@@ -72,12 +49,11 @@ env:
   TALEND_CLOUD_ENV: "Dev"
   TALEND_CLOUD_WORKSPACE: "Cloud_Run"
 
-  # Talend Cloud publisher
   MAVEN_PLUGIN: "-Pcloud-publisher"
 
 
 # ============================================================
-# JOBS
+# JOB
 # ============================================================
 
 jobs:
@@ -86,12 +62,9 @@ jobs:
 
     name: Talend Build & Deploy
 
-    # GitHub Environment
     environment: Dev
 
-    # Windows self-hosted runner
     runs-on: self-hosted
-
 
     steps:
 
@@ -104,33 +77,39 @@ jobs:
 
         run: |
 
-          $javaHome = "C:\Program Files\Java\jdk-17"
-          $mavenHome = "C:\apache-maven-3.9.16-bin\apache-maven-3.9.16"
-          $mavenBin = Join-Path $mavenHome "bin"
-
           Write-Host "=============================================="
           Write-Host "Configuring Java, Maven and GPG"
           Write-Host "=============================================="
 
-          # JAVA_HOME
+          $javaHome = "C:\Program Files\Java\jdk-17"
+          $mavenHome = "C:\apache-maven-3.9.16-bin\apache-maven-3.9.16"
+          $mavenBin = Join-Path $mavenHome "bin"
+
+          if (!(Test-Path "$javaHome\bin\java.exe")) {
+            Write-Error "Java not found: $javaHome"
+            exit 1
+          }
+
+          if (!(Test-Path "$mavenBin\mvn.cmd")) {
+            Write-Error "Maven not found: $mavenBin"
+            exit 1
+          }
+
           "JAVA_HOME=$javaHome" | Out-File `
             -FilePath $env:GITHUB_ENV `
             -Append `
             -Encoding utf8
 
-          # MAVEN_HOME
           "MAVEN_HOME=$mavenHome" | Out-File `
             -FilePath $env:GITHUB_ENV `
             -Append `
             -Encoding utf8
 
-          # Add Java to PATH
           "$javaHome\bin" | Out-File `
             -FilePath $env:GITHUB_PATH `
             -Append `
             -Encoding utf8
 
-          # Add Maven to PATH
           "$mavenBin" | Out-File `
             -FilePath $env:GITHUB_PATH `
             -Append `
@@ -170,19 +149,24 @@ jobs:
 
         run: |
 
-          Write-Host ""
           Write-Host "=============================================="
-          Write-Host "Checking Talend CI variables"
+          Write-Host "Talend CI Variables"
           Write-Host "=============================================="
 
-          Write-Host ""
           Write-Host "P2_BASE_URL = '${{ vars.P2_BASE_URL }}'"
           Write-Host "P2_UPDATE_URL = '${{ vars.P2_UPDATE_URL }}'"
           Write-Host "P2_INSTALLER_PATH = '${{ vars.P2_INSTALLER_PATH }}'"
           Write-Host "CI_PRODUCT_PATH = '${{ vars.CI_PRODUCT_PATH }}'"
 
-          Write-Host ""
-          Write-Host "=============================================="
+          if (!(Test-Path "${{ vars.CI_PRODUCT_PATH }}")) {
+            Write-Error "CI_PRODUCT_PATH does not exist."
+            exit 1
+          }
+
+          if (!(Test-Path "${{ vars.P2_INSTALLER_PATH }}")) {
+            Write-Error "P2_INSTALLER_PATH does not exist."
+            exit 1
+          }
 
 
       # ======================================================
@@ -192,8 +176,6 @@ jobs:
       - name: Set MAVEN_OPTS for Talend Cloud
         shell: powershell
 
-        working-directory: ${{ runner.temp }}
-
         run: |
 
           Write-Host "=============================================="
@@ -201,7 +183,9 @@ jobs:
           Write-Host "=============================================="
 
           $mavenOpts = @(
+            "-Dinstaller.clean=true"
             "-Dlicense.path=${{ env.CI_REPO_NAME }}/license"
+            "-Dtalend.studio.p2.base=${{ vars.P2_BASE_URL }}"
             "-Dtalend.studio.p2.update=${{ vars.P2_UPDATE_URL }}"
             "-Dgeneration.type=local"
             "-Dservice.url=${{ vars.TALEND_CLOUD_URL }}"
@@ -223,7 +207,6 @@ jobs:
             -Append `
             -Encoding utf8
 
-          Write-Host ""
           Write-Host "MAVEN_OPTS configured successfully."
 
 
@@ -250,17 +233,22 @@ jobs:
 
           Write-Host ""
           Write-Host "TALEND CLOUD"
+
           Write-Host "TALEND_CLOUD_URL: ${{ vars.TALEND_CLOUD_URL }}"
           Write-Host "TALEND_CLOUD_ENV: ${{ env.TALEND_CLOUD_ENV }}"
           Write-Host "TALEND_CLOUD_WORKSPACE: ${{ env.TALEND_CLOUD_WORKSPACE }}"
 
           Write-Host ""
           Write-Host "MAVEN"
+
           Write-Host "BUILDER_MAVEN_PLUGIN_VERSION: ${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}"
           Write-Host "P2_BASE_URL: ${{ vars.P2_BASE_URL }}"
           Write-Host "P2_UPDATE_URL: ${{ vars.P2_UPDATE_URL }}"
-          Write-Host "P2_INSTALLER_PATH: ${{ vars.P2_INSTALLER_PATH }}"
+
+          Write-Host ""
+          Write-Host "Talend installation:"
           Write-Host "CI_PRODUCT_PATH: ${{ vars.CI_PRODUCT_PATH }}"
+          Write-Host "P2_INSTALLER_PATH: ${{ vars.P2_INSTALLER_PATH }}"
 
           Write-Host ""
           Write-Host "JAVA_HOME: $env:JAVA_HOME"
@@ -275,7 +263,7 @@ jobs:
 
 
       # ======================================================
-      # 6. VERIFY TALEND INSTALLATION
+      # 6. VALIDATE TALEND INSTALLATION
       # ======================================================
 
       - name: Validate Talend installation
@@ -290,6 +278,11 @@ jobs:
 
           $productPath = "${{ vars.CI_PRODUCT_PATH }}"
           $p2Path = "${{ vars.P2_INSTALLER_PATH }}"
+          $talendExe = Join-Path $productPath "Talend-Studio-win-x86_64.exe"
+          $commandLineBat = Join-Path $productPath "commandline.bat"
+          $bundlesInfo = Join-Path `
+            $productPath `
+            "configuration\org.eclipse.equinox.simpleconfigurator\bundles.info"
 
           Write-Host ""
           Write-Host "CI_PRODUCT_PATH:"
@@ -299,132 +292,62 @@ jobs:
           Write-Host "P2_INSTALLER_PATH:"
           Write-Host $p2Path
 
-          # --------------------------------------------------
-          # Product directory
-          # --------------------------------------------------
+          Write-Host ""
+          Write-Host "Product directory exists:"
+          Write-Host (Test-Path $productPath)
 
           Write-Host ""
-          Write-Host "Checking CI_PRODUCT_PATH..."
-
-          if (!(Test-Path $productPath)) {
-            Write-Error "Talend product directory does not exist: $productPath"
-            exit 1
-          }
-
-          Write-Host "Product directory exists: True"
-
-
-          # --------------------------------------------------
-          # P2 directory
-          # --------------------------------------------------
+          Write-Host "P2 directory exists:"
+          Write-Host (Test-Path $p2Path)
 
           Write-Host ""
-          Write-Host "Checking P2_INSTALLER_PATH..."
-
-          if (!(Test-Path $p2Path)) {
-            Write-Error "P2 directory does not exist: $p2Path"
-            exit 1
-          }
-
-          Write-Host "P2 directory exists: True"
-
-
-          # --------------------------------------------------
-          # Talend executable
-          # --------------------------------------------------
+          Write-Host "Talend executable exists:"
+          Write-Host (Test-Path $talendExe)
 
           Write-Host ""
-          Write-Host "Checking Talend executable..."
-
-          $talendExe = Join-Path $productPath "Talend-Studio-win-x86_64.exe"
+          Write-Host "commandline.bat exists:"
+          Write-Host (Test-Path $commandLineBat)
 
           if (!(Test-Path $talendExe)) {
             Write-Error "Talend executable not found: $talendExe"
             exit 1
           }
 
-          Write-Host "Talend executable exists: True"
-
-
-          # --------------------------------------------------
-          # CommandLine BAT
-          # --------------------------------------------------
-
-          Write-Host ""
-          Write-Host "Checking commandline.bat..."
-
-          $commandLineBat = Join-Path $productPath "commandline.bat"
-
           if (!(Test-Path $commandLineBat)) {
             Write-Error "commandline.bat not found: $commandLineBat"
             exit 1
           }
 
-          Write-Host "commandline.bat exists: True"
-
-
-          # --------------------------------------------------
-          # CommandLine plugin
-          # --------------------------------------------------
-
           Write-Host ""
-          Write-Host "Checking Talend CommandLine plugin..."
+          Write-Host "Checking Talend CommandLine plugin registration..."
 
-          $commandLinePlugin = Get-ChildItem `
-            (Join-Path $productPath "plugins") `
-            -Filter "org.talend.commandline_*.jar" `
-            -File `
-            -ErrorAction SilentlyContinue
+          if (Test-Path $bundlesInfo) {
 
-          if ($null -eq $commandLinePlugin) {
-            Write-Error "org.talend.commandline plugin was not found."
-            exit 1
+            $matches = Select-String `
+              -Path $bundlesInfo `
+              -Pattern "org.talend.commandline"
+
+            if ($matches) {
+              $matches | ForEach-Object {
+                Write-Host $_.Line
+              }
+            }
+            else {
+              Write-Error "org.talend.commandline is not registered in bundles.info"
+              exit 1
+            }
           }
-
-          $commandLinePlugin | ForEach-Object {
-            Write-Host $_.Name
-          }
-
-
-          # --------------------------------------------------
-          # bundles.info
-          # --------------------------------------------------
-
-          Write-Host ""
-          Write-Host "Checking bundles.info registration..."
-
-          $bundlesInfo = Join-Path `
-            $productPath `
-            "configuration\org.eclipse.equinox.simpleconfigurator\bundles.info"
-
-          if (!(Test-Path $bundlesInfo)) {
+          else {
             Write-Error "bundles.info not found: $bundlesInfo"
             exit 1
           }
 
-          $registration = Select-String `
-            -Path $bundlesInfo `
-            -Pattern "org.talend.commandline,"
-
-          if ($null -eq $registration) {
-            Write-Error "org.talend.commandline is NOT registered in bundles.info."
-            exit 1
-          }
-
-          Write-Host "CommandLine registration found:"
-          $registration | ForEach-Object {
-            Write-Host $_.Line
-          }
-
-
           Write-Host ""
-          Write-Host "=============================================="
           Write-Host "Talend installation validation completed."
-          Write-Host "=============================================="
 
 
       # ======================================================
-      # 7. TEST TALEND COMMANDLINE DIRECTLY
+      # 7. TEST TALEND COMMANDLINE
       # ======================================================
 
       - name: Test Talend CommandLine
@@ -438,30 +361,74 @@ jobs:
           Write-Host "=============================================="
 
           $productPath = "${{ vars.CI_PRODUCT_PATH }}"
-          $commandLineBat = Join-Path $productPath "commandline.bat"
+          $talendExe = Join-Path `
+            $productPath `
+            "Talend-Studio-win-x86_64.exe"
 
-          if (!(Test-Path $commandLineBat)) {
-            Write-Error "commandline.bat not found: $commandLineBat"
+          $testWorkspace = Join-Path `
+            $env:RUNNER_TEMP `
+            "talend-ci-commandline-test"
+
+          Write-Host ""
+          Write-Host "Product:"
+          Write-Host $productPath
+
+          Write-Host ""
+          Write-Host "Executable:"
+          Write-Host $talendExe
+
+          Write-Host ""
+          Write-Host "CommandLine workspace:"
+          Write-Host $testWorkspace
+
+          if (!(Test-Path $talendExe)) {
+            Write-Error "Talend executable not found."
             exit 1
           }
 
-          Write-Host ""
-          Write-Host "CommandLine:"
-          Write-Host $commandLineBat
+          if (Test-Path $testWorkspace) {
+            Remove-Item `
+              -Path $testWorkspace `
+              -Recurse `
+              -Force
+          }
+
+          New-Item `
+            -ItemType Directory `
+            -Path $testWorkspace `
+            -Force | Out-Null
 
           Write-Host ""
-          Write-Host "Starting CommandLine..."
+          Write-Host "Starting Talend CommandLine..."
 
-          & $commandLineBat
+          Push-Location $productPath
 
-          $exitCode = $LASTEXITCODE
+          try {
+
+            & $talendExe `
+              -nosplash `
+              -application org.talend.commandline.CommandLine `
+              -consoleLog `
+              -data $testWorkspace
+
+            $exitCode = $LASTEXITCODE
+
+          }
+          finally {
+
+            Pop-Location
+
+          }
 
           Write-Host ""
           Write-Host "CommandLine exit code: $exitCode"
 
           if ($exitCode -ne 0) {
-            Write-Error "Talend CommandLine failed with exit code $exitCode"
-            exit $exitCode
+
+            Write-Error `
+              "Talend CommandLine failed with exit code $exitCode"
+
+            exit 1
           }
 
           Write-Host ""
@@ -531,10 +498,6 @@ jobs:
           Write-Host "Decrypting Talend CI files"
           Write-Host "=============================================="
 
-          # --------------------------------------------------
-          # Decrypt Talend license
-          # --------------------------------------------------
-
           Write-Host ""
           Write-Host "Decrypting license.gpg..."
 
@@ -554,11 +517,6 @@ jobs:
           }
 
           Write-Host "License decrypted successfully."
-
-
-          # --------------------------------------------------
-          # Decrypt Maven settings
-          # --------------------------------------------------
 
           Write-Host ""
           Write-Host "Decrypting maven_settings.xml.gpg..."
@@ -606,30 +564,22 @@ jobs:
           Write-Host "${{ vars.P2_UPDATE_URL }}"
 
           Write-Host ""
-          Write-Host "P2 Installer:"
-          Write-Host "${{ vars.P2_INSTALLER_PATH }}"
-
-          Write-Host ""
-          Write-Host "Talend Product:"
+          Write-Host "Product path:"
           Write-Host "${{ vars.CI_PRODUCT_PATH }}"
 
           Write-Host ""
-          Write-Host "Builder version:"
-          Write-Host "${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}"
-
-          Write-Host ""
-          Write-Host "Starting Maven generateAllPoms..."
+          Write-Host "P2 installer path:"
+          Write-Host "${{ vars.P2_INSTALLER_PATH }}"
 
           mvn `
             -s "${{ env.CI_REPO_NAME }}\${{ env.MAVEN_SETTINGS }}" `
             -U `
             -f "${{ env.CI_REPO_NAME }}\sample_pom.xml" `
             "org.talend.ci:builder-maven-plugin:${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}:generateAllPoms" `
-            $env:MAVEN_OPTS `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000" `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000" `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000" `
-            "-Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5"
+            "-Dorg.eclipse.equinox.p2.transport.ecf.retry=5"
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "P2 installation / POM generation failed."
@@ -701,7 +651,6 @@ jobs:
             -pl "${{ env.JOB_LIST }}" `
             -am `
             -ff `
-            $env:MAVEN_OPTS `
             "-DaltReleaseDeploymentRepository=releases::default::${{ vars.ARTIFACT_URL }}/repository/releases/" `
             "-DaltSnapshotDeploymentRepository=snapshots::default::${{ vars.ARTIFACT_URL }}/repository/snapshots/"
 
