@@ -9,7 +9,7 @@ env:
   GITHUB_RUNNER: "self-hosted"
 
   # Talend project name
-  PROJECT_NAME: "TALEND_CICD"
+  PROJECT_NAME: "talend_cicd"
 
   # Shared CI project containing license, Maven settings, etc.
   CI_REPO_NAME: "talend_cicd"
