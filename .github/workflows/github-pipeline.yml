@@ -7,156 +7,348 @@ on:
 
 env:
   GITHUB_RUNNER: "self-hosted"
+
   # Talend project name
   PROJECT_NAME: "TALEND_CICD"
-  # Shared GitLab project for CI shared files (lowercase)
+
+  # Folder containing the shared CI files
   CI_REPO_NAME: "talend_cicd"
-  
+
+  # Main Git project
   GIT_MAIN_PROJECT_BRANCH: "main"
   GIT_MAIN_PROJECT_PATH: "main"
+
   ### TO DECOMMENT IF USING A REFERENCE PROJECT
-  #GIT_MAIN_REF_PROJECT_BRANCH: "main"
-  #GIT_MAIN_REF_PROJECT_PATH: "atran_referenceproject"
+  # GIT_MAIN_REF_PROJECT_BRANCH: "main"
+  # GIT_MAIN_REF_PROJECT_PATH: "atran_referenceproject"
 
   ############ JOB FILTER ####################
-  #Variable corresponding to the specific artifact you want to build. Define it as a variable in the GUI so it can be overwritten at runtime. If you don't use it, all existing artifacts in your project will be executed and published. Coma separator if more than one.
+
+  # Specific Talend artifact to build.
+  # Example:
+  # jobs/process/mydemo_0.1
+  #
+  # If you want to build all artifacts, this can be removed/changed
+  # according to the Talend CI documentation.
   JOB_LIST: "jobs/process/mydemo_0.1"
-  
+
   ############# MAVEN OPTIONS ################
+
   MAVEN_SETTINGS: "maven_settings.xml"
-  
+
   ### TO DECOMMENT WHEN USING TALEND ON-PREM
   ############# PUBLISH TO NEXUS ################
-  #MAVEN_PLUGIN: "-Pnexus"
-  
-  ### TO DECOMMENT WHEN USING TALEND CLOUD
+  # MAVEN_PLUGIN: "-Pnexus"
+
+  ### USING TALEND CLOUD
   ############ TMC ###########################
+
   TALEND_CLOUD_ENV: "Dev"
   TALEND_CLOUD_WORKSPACE: "Cloud_Run"
+
   ############# PUBLISH TO CLOUD ################
+
   MAVEN_PLUGIN: "-Pcloud-publisher"
-  
+
   ### TO DECOMMENT WHEN USING DOCKER
   ############# PUBLISH TO DOCKER ################
-  #MAVEN_PLUGIN: "-Pdocker"
-  #DOCKER_IMG: "xxxxx"
-  
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a job called "display-variables"
-  display-variables:
-    name: launch build & deploy
-    environment: Dev
-    # The type of runner that the job will run on
-    runs-on: self-hosted     
-    steps:
-      ### TO DECOMMENT WHEN USING TALEND ON-PREM
-      #- name: set MAVEN_OPS variable for Talend on-prem
-      #  working-directory: ${{runner.temp}}
-      #  run: echo "MAVEN_OPTS=$(echo -Dinstaller.clean=true   \
-      #          -Dlicense.path=${{env.CI_REPO_NAME}}/license  \
-      #          -Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}  \
-      #          -Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}  \
-      #          -Dgeneration.type=local  \
-      #          -Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}  \
-      #          -Dproduct.path=${{vars.CI_PRODUCT_PATH}}  \
-      #          -Dorg.slf4j.simpleLogger.showDateTime=true   \
-      #          -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS)" >> $GITHUB_ENV
 
-      ### TO DECOMMENT WHEN USING TALEND CLOUD
-      - name: set MAVEN_OPS variable for Talend
-        working-directory: ${{runner.temp}}
-        run: echo "MAVEN_OPTS=$(echo -Dinstaller.clean=true  \
-                -Dlicense.path=${{env.CI_REPO_NAME}}/license  \
-                -Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}  \
-                -Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}  \
-                -Dgeneration.type=local \
-                -Dservice.url=${{vars.TALEND_CLOUD_URL}} \
-                -Dcloud.token=${{secrets.TALEND_CLOUD_TOKEN}} \          
-                -Dcloud.publisher.screenshot=true \
-                -Dcloud.publisher.updateFlow=true \
-                -Dcloud.publisher.environment=${{env.TALEND_CLOUD_ENV}} \
-                -Dcloud.publisher.workspace=${{env.TALEND_CLOUD_WORKSPACE}} \
-                -Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}  \
-                -Dproduct.path=${{vars.CI_PRODUCT_PATH}}  \
-                -Dorg.slf4j.simpleLogger.showDateTime=true   \
-                -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS)" >> $GITHUB_ENV
-                
-      ### TO DECOMMENT WHEN USING DOCKER
-      #- name: set MAVEN_OPS variable for Docker
-      #  working-directory: ${{runner.temp}}
-      #  run: echo "MAVEN_OPTS=$(echo -Dinstaller.clean=true   \
-      #          -Dlicense.path=${{env.CI_REPO_NAME}}/license  \
-      #          -Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}  \
-      #          -Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}  \
-      #          -Dgeneration.type=local  \
-      #          -Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}  \
-      #          -Dproduct.path=${{vars.CI_PRODUCT_PATH}}  \
-      #          -Djkube.docker.push.registry=${{vars.docker_registry}} \
-      #          -Djkube.docker.username=${{vars.docker_username}} \
-      #          -Djkube.docker.password=${{secrets.docker_password}}\
-      #          -Dorg.slf4j.simpleLogger.showDateTime=true   \
-      #          -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS)" >> $GITHUB_ENV
-                
-      - name: display variables
-        working-directory: ${{runner.temp}}
+  # MAVEN_PLUGIN: "-Pdocker"
+  # DOCKER_IMG: "xxxxx"
+
+
+# ============================================================
+# JOBS
+# ============================================================
+
+jobs:
+
+  display-variables:
+
+    name: launch build & deploy
+
+    # IMPORTANT:
+    # Your GitHub variables/secrets are configured under
+    # Settings -> Environments -> Dev
+    environment: Dev
+
+    # Your self-hosted Windows runner
+    runs-on: self-hosted
+
+    steps:
+
+      # ======================================================
+      # SET MAVEN OPTIONS FOR TALEND CLOUD
+      # ======================================================
+
+      - name: set MAVEN_OPTS variable for Talend
+        working-directory: ${{ runner.temp }}
+        shell: pwsh
+
         run: |
-          echo "**************************** VARIABLES ****************************"
-          echo "ARTIFACT_URL: ${{vars.ARTIFACT_URL}}"
-          echo "BUILDER_MAVEN_PLUGIN_VERSION: ${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}"
-          echo "P2_BASE_URL: ${{vars.P2_BASE_URL}}"
-          echo "P2_UPDATE_URL: ${{vars.P2_UPDATE_URL}}"
-          echo "TALEND_CLOUD_URL: ${{vars.TALEND_CLOUD_URL}}"
-          echo "TALEND_CLOUD_ENV: ${{env.TALEND_CLOUD_ENV}}"
-          echo "TALEND_CLOUD_WORKSPACE: ${{env.TALEND_CLOUD_WORKSPACE}}"
-          echo "CI_SERVER_PROTOCOL: ${{vars.CI_SERVER_PROTOCOL}}"
-          echo "CI_SERVER_HOST: ${{vars.CI_SERVER_HOST}}"
-          echo "CI_REPO_NAME: ${{env.CI_REPO_NAME}}"
-          echo "MAVEN_SETTINGS : ${{env.MAVEN_SETTINGS}}"
-          echo "MAVEN_OPTS : ${{env.MAVEN_OPTS}}"
-          echo "**************************** VARIABLES ****************************"
-        
-      ### Get CI common files from the CI project
+
+          $MAVEN_OPTS = @(
+            "-Dinstaller.clean=true"
+            "-Dlicense.path=${{ env.CI_REPO_NAME }}/license"
+            "-Dtalend.studio.p2.base=${{ vars.P2_BASE_URL }}"
+            "-Dtalend.studio.p2.update=${{ vars.P2_UPDATE_URL }}"
+            "-Dgeneration.type=local"
+            "-Dservice.url=${{ vars.TALEND_CLOUD_URL }}"
+            "-Dcloud.token=${{ secrets.TALEND_CLOUD_TOKEN }}"
+            "-Dcloud.publisher.screenshot=true"
+            "-Dcloud.publisher.updateFlow=true"
+            "-Dcloud.publisher.environment=${{ env.TALEND_CLOUD_ENV }}"
+            "-Dcloud.publisher.workspace=${{ env.TALEND_CLOUD_WORKSPACE }}"
+            "-Dp2Installer.path=${{ vars.P2_INSTALLER_PATH }}"
+            "-Dproduct.path=${{ vars.CI_PRODUCT_PATH }}"
+            "-Dorg.slf4j.simpleLogger.showDateTime=true"
+            "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
+          ) -join " "
+
+          "MAVEN_OPTS=$MAVEN_OPTS" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+
+      # ======================================================
+      # DISPLAY VARIABLES
+      # ======================================================
+
+      - name: display variables
+        working-directory: ${{ runner.temp }}
+        shell: pwsh
+
+        run: |
+
+          Write-Host "**************************** VARIABLES ****************************"
+
+          Write-Host "PROJECT_NAME: $env:PROJECT_NAME"
+          Write-Host "CI_REPO_NAME: $env:CI_REPO_NAME"
+          Write-Host "GIT_MAIN_PROJECT_BRANCH: $env:GIT_MAIN_PROJECT_BRANCH"
+          Write-Host "GIT_MAIN_PROJECT_PATH: $env:GIT_MAIN_PROJECT_PATH"
+          Write-Host "JOB_LIST: $env:JOB_LIST"
+
+          Write-Host "MAVEN_SETTINGS: $env:MAVEN_SETTINGS"
+          Write-Host "MAVEN_PLUGIN: $env:MAVEN_PLUGIN"
+
+          Write-Host "TALEND_CLOUD_ENV: $env:TALEND_CLOUD_ENV"
+          Write-Host "TALEND_CLOUD_WORKSPACE: $env:TALEND_CLOUD_WORKSPACE"
+
+          Write-Host "ARTIFACT_URL: ${{ vars.ARTIFACT_URL }}"
+          Write-Host "BUILDER_MAVEN_PLUGIN_VERSION: ${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}"
+
+          Write-Host "P2_BASE_URL: ${{ vars.P2_BASE_URL }}"
+          Write-Host "P2_UPDATE_URL: ${{ vars.P2_UPDATE_URL }}"
+          Write-Host "P2_INSTALLER_PATH: ${{ vars.P2_INSTALLER_PATH }}"
+          Write-Host "CI_PRODUCT_PATH: ${{ vars.CI_PRODUCT_PATH }}"
+
+          Write-Host "TALEND_CLOUD_URL: ${{ vars.TALEND_CLOUD_URL }}"
+
+          Write-Host "**************************** VARIABLES ****************************"
+
+          Write-Host "MAVEN_OPTS has been configured."
+          Write-Host "Sensitive values are not displayed."
+
+
+      # ======================================================
+      # GIT CHECKOUT
+      # ======================================================
+
       - name: Git Checkout
         uses: actions/checkout@v3
+
         with:
-          path: ${{env.GIT_MAIN_PROJECT_PATH }}
-          ref: ${{env.GIT_MAIN_PROJECT_BRANCH}}
+          path: ${{ env.GIT_MAIN_PROJECT_PATH }}
+          ref: ${{ env.GIT_MAIN_PROJECT_BRANCH }}
+
+
+      # ======================================================
+      # REFERENCE PROJECT
+      # ======================================================
 
       ### TO DECOMMENT IF USING A REFERENCE PROJECT
-      ### Git checkout for reference project
-      #- name: Git Checkout reference project repo
-      #  uses: actions/checkout@v3
-      #  with:
-      #   repository: TalendPS/atran_referenceproject
-      #   ref: ${{env.GIT_MAIN_REF_PROJECT_BRANCH}}
-      #   path: ${{env.GIT_MAIN_REF_PROJECT_PATH }}
-      #   token: ${{secrets.CI_JOB_USER_PASSWORD}} 
-         
+
+      # - name: Git Checkout reference project repo
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: TalendPS/atran_referenceproject
+      #     ref: ${{ env.GIT_MAIN_REF_PROJECT_BRANCH }}
+      #     path: ${{ env.GIT_MAIN_REF_PROJECT_PATH }}
+      #     token: ${{ secrets.CI_JOB_USER_PASSWORD }}
+
+
       ### TO DECOMMENT IF USING A REFERENCE PROJECT
-      #- name : Copy reference project to main project
-      #  run: cp -r ${{ github.workspace }}/${{env.GIT_MAIN_REF_PROJECT_PATH }}/* ${{ github.workspace }}/${{env.GIT_MAIN_PROJECT_PATH }}/
-         
-      # Decrypt files
-      # license.gpg to license
-      # maven_settings.xml.gpg to maven_settings.xml
+
+      # - name: Copy reference project to main project
+      #   shell: pwsh
+      #   run: |
+      #     Copy-Item `
+      #       -Path "${{ github.workspace }}/${{ env.GIT_MAIN_REF_PROJECT_PATH }}/*" `
+      #       -Destination "${{ github.workspace }}/${{ env.GIT_MAIN_PROJECT_PATH }}/" `
+      #       -Recurse `
+      #       -Force
+
+
+      # ======================================================
+      # DECRYPT LICENSE AND MAVEN SETTINGS
+      # ======================================================
+
       - name: decrypt files
-        working-directory: ${{ github.workspace }}/${{env.GIT_MAIN_PROJECT_PATH }}
+
+        working-directory: ${{ github.workspace }}/${{ env.GIT_MAIN_PROJECT_PATH }}
+
+        shell: pwsh
+
         run: |
-          gpg --quiet --batch --yes --decrypt --passphrase="${{secrets.LARGE_SECRET_PASSPHRASE}}" --output ${{env.CI_REPO_NAME}}/license ${{env.CI_REPO_NAME}}/license.gpg
-          gpg --quiet --batch --yes --decrypt --passphrase="${{secrets.LARGE_SECRET_PASSPHRASE}}" --output ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}}.gpg
-      
-      # Install P2 and generate poms
+
+          Write-Host "Adding GnuPG to PATH..."
+
+          $env:Path += ";C:\Program Files\GnuPG\bin"
+
+          Write-Host "Checking GnuPG..."
+
+          gpg --version
+
+          Write-Host "Checking encrypted files..."
+
+          if (-not (Test-Path "${{ env.CI_REPO_NAME }}/license.gpg")) {
+              Write-Error "license.gpg was not found."
+              exit 1
+          }
+
+          if (-not (Test-Path "${{ env.CI_REPO_NAME }}/${{ env.MAVEN_SETTINGS }}.gpg")) {
+              Write-Error "${{ env.MAVEN_SETTINGS }}.gpg was not found."
+              exit 1
+          }
+
+          Write-Host "Decrypting Talend license..."
+
+          gpg `
+            --quiet `
+            --batch `
+            --yes `
+            --pinentry-mode loopback `
+            --passphrase="${{ secrets.LARGE_SECRET_PASSPHRASE }}" `
+            --output "${{ env.CI_REPO_NAME }}/license" `
+            --decrypt "${{ env.CI_REPO_NAME }}/license.gpg"
+
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to decrypt Talend license."
+              exit 1
+          }
+
+          Write-Host "Decrypting Maven settings..."
+
+          gpg `
+            --quiet `
+            --batch `
+            --yes `
+            --pinentry-mode loopback `
+            --passphrase="${{ secrets.LARGE_SECRET_PASSPHRASE }}" `
+            --output "${{ env.CI_REPO_NAME }}/${{ env.MAVEN_SETTINGS }}" `
+            --decrypt "${{ env.CI_REPO_NAME }}/${{ env.MAVEN_SETTINGS }}.gpg"
+
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to decrypt Maven settings."
+              exit 1
+          }
+
+          Write-Host "Decryption completed successfully."
+
+
+      # ======================================================
+      # INSTALL P2 AND GENERATE POMS
+      # ======================================================
+
       - name: install P2 and generate poms
-        working-directory: ${{ github.workspace }}/${{env.GIT_MAIN_PROJECT_PATH }}
-        run: mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.CI_REPO_NAME}}/sample_pom.xml org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms ${{env.MAVEN_OPTS}} -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000 -Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5
-      
-      # Build test and publish on Talend on-prem or Talend Cloud
+
+        working-directory: ${{ github.workspace }}/${{ env.GIT_MAIN_PROJECT_PATH }}
+
+        shell: pwsh
+
+        run: |
+
+          Write-Host "Installing Talend P2 dependencies and generating POMs..."
+
+          mvn `
+            -s "${{ env.CI_REPO_NAME }}/${{ env.MAVEN_SETTINGS }}" `
+            -U `
+            -f "${{ env.CI_REPO_NAME }}/sample_pom.xml" `
+            "org.talend.ci:builder-maven-plugin:${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}:generateAllPoms" `
+            $env:MAVEN_OPTS `
+            "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000" `
+            "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000" `
+            "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000" `
+            "-Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5"
+
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Talend P2 installation / POM generation failed."
+              exit 1
+          }
+
+          Write-Host "P2 installation and POM generation completed successfully."
+
+
+      # ======================================================
+      # BUILD AND DEPLOY
+      # ======================================================
+
       - name: build and deploy to artifact repository
-        working-directory: ${{ github.workspace }}/${{env.GIT_MAIN_PROJECT_PATH }}
-        run: mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.PROJECT_NAME}}/poms/pom.xml ${{env.MAVEN_PLUGIN}} clean deploy -e -pl ${{env.JOB_LIST}} -am -ff ${{env.MAVEN_OPTS}} -DaltReleaseDeploymentRepository=releases::default::${{vars.ARTIFACT_URL}}/repository/releases/ -DaltSnapshotDeploymentRepository=snapshots::default::${{vars.ARTIFACT_URL}}/repository/snapshots/
-      
-      ## Build test and publish on Docker
-      #- name: build and deploy to artifact repository
-      #  working-directory: ${{ github.workspace }}/${{env.GIT_MAIN_PROJECT_PATH }}
-      #  run: mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.PROJECT_NAME}}/poms/pom.xml ${{env.MAVEN_PLUGIN}} clean deploy -e -pl ${{env.JOB_LIST}} -am -ff ${{env.MAVEN_OPTS}} -Dtalend.docker.name=${{env.DOCKER_IMG}}
+
+        working-directory: ${{ github.workspace }}/${{ env.GIT_MAIN_PROJECT_PATH }}
+
+        shell: pwsh
+
+        run: |
+
+          Write-Host "Building Talend project..."
+          Write-Host "Project: $env:PROJECT_NAME"
+          Write-Host "Job: $env:JOB_LIST"
+          Write-Host "Maven plugin: $env:MAVEN_PLUGIN"
+
+          mvn `
+            -s "${{ env.CI_REPO_NAME }}/${{ env.MAVEN_SETTINGS }}" `
+            -U `
+            -f "${{ env.PROJECT_NAME }}/poms/pom.xml" `
+            "${{ env.MAVEN_PLUGIN }}" `
+            clean `
+            deploy `
+            -e `
+            -pl "${{ env.JOB_LIST }}" `
+            -am `
+            -ff `
+            $env:MAVEN_OPTS `
+            "-DaltReleaseDeploymentRepository=releases::default::${{ vars.ARTIFACT_URL }}/repository/releases/" `
+            "-DaltSnapshotDeploymentRepository=snapshots::default::${{ vars.ARTIFACT_URL }}/repository/snapshots/"
+
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Talend build and deployment failed."
+              exit 1
+          }
+
+          Write-Host "Talend build and deployment completed successfully."
+
+
+      # ======================================================
+      # DOCKER
+      # ======================================================
+
+      ## TO DECOMMENT WHEN USING DOCKER
+
+      # - name: build and deploy to artifact repository
+      #   working-directory: ${{ github.workspace }}/${{ env.GIT_MAIN_PROJECT_PATH }}
+      #   shell: pwsh
+      #   run: |
+      #
+      #     mvn `
+      #       -s "${{ env.CI_REPO_NAME }}/${{ env.MAVEN_SETTINGS }}" `
+      #       -U `
+      #       -f "${{ env.PROJECT_NAME }}/poms/pom.xml" `
+      #       "${{ env.MAVEN_PLUGIN }}" `
+      #       clean `
+      #       deploy `
+      #       -e `
+      #       -pl "${{ env.JOB_LIST }}" `
+      #       -am `
+      #       -ff `
+      #       $env:MAVEN_OPTS `
+      #       "-Dtalend.docker.name=${{ env.DOCKER_IMG }}"
