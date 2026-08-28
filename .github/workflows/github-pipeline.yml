@@ -361,9 +361,9 @@ jobs:
           Write-Host "=============================================="
 
           $productPath = "${{ vars.CI_PRODUCT_PATH }}"
-          $talendExe = Join-Path `
+          $commandLineBat = Join-Path `
             $productPath `
-            "Talend-Studio-win-x86_64.exe"
+            "commandline.bat"
 
           $testWorkspace = Join-Path `
             $env:RUNNER_TEMP `
@@ -374,15 +374,15 @@ jobs:
           Write-Host $productPath
 
           Write-Host ""
-          Write-Host "Executable:"
-          Write-Host $talendExe
+          Write-Host "CommandLine batch:"
+          Write-Host $commandLineBat
 
           Write-Host ""
           Write-Host "CommandLine workspace:"
           Write-Host $testWorkspace
 
-          if (!(Test-Path $talendExe)) {
-            Write-Error "Talend executable not found."
+          if (!(Test-Path $commandLineBat)) {
+            Write-Error "commandline.bat not found: $commandLineBat"
             exit 1
           }
 
@@ -400,16 +400,19 @@ jobs:
 
           Write-Host ""
           Write-Host "Starting Talend CommandLine..."
+          Write-Host ""
+          Write-Host "Working directory:"
+          Write-Host $productPath
 
           Push-Location $productPath
 
           try {
 
-            & $talendExe `
-              -nosplash `
-              -application org.talend.commandline.CommandLine `
-              -consoleLog `
-              -data $testWorkspace
+            Write-Host ""
+            Write-Host "Running:"
+            Write-Host ".\commandline.bat"
+
+            cmd.exe /c ".\commandline.bat"
 
             $exitCode = $LASTEXITCODE
 
