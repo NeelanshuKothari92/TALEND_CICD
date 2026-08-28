@@ -9,7 +9,7 @@ env:
   GITHUB_RUNNER: "self-hosted"
 
   # Talend project name
-  PROJECT_NAME: "talend_cicd"
+  PROJECT_NAME: "TALEND_CICD"
 
   # Shared CI project containing license, Maven settings, etc.
   CI_REPO_NAME: "talend_cicd"
@@ -214,6 +214,19 @@ jobs:
           }
 
           Write-Host "Maven settings decrypted successfully."
+
+
+      ############################################################
+      # CHECK TALEND CI VARIABLES
+      ############################################################
+
+      - name: Check Talend CI variables
+        shell: powershell
+        run: |
+          Write-Host "P2_BASE_URL = '${{ vars.P2_BASE_URL }}'"
+          Write-Host "P2_UPDATE_URL = '${{ vars.P2_UPDATE_URL }}'"
+          Write-Host "P2_INSTALLER_PATH = '${{ vars.P2_INSTALLER_PATH }}'"
+          Write-Host "CI_PRODUCT_PATH = '${{ vars.CI_PRODUCT_PATH }}'"
 
 
       ############################################################
