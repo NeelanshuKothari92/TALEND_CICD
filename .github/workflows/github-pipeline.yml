@@ -20,7 +20,7 @@ env:
   # Talend project
   # ----------------------------------------------------------
 
-  PROJECT_NAME: "talend_cicd"
+  PROJECT_NAME: "TALEND_CICD"
   CI_REPO_NAME: "talend_cicd"
 
   # ----------------------------------------------------------
