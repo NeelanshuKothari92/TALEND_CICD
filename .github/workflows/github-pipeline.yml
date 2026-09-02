@@ -51,9 +51,11 @@ jobs:
   display-variables:
     name: launch build & deploy
 
+    # The type of runner that the job will run on
     runs-on: self-hosted
 
-    # Required for Dev environment secrets
+    # Required because LARGE_SECRET_PASSPHRASE and TALEND_CLOUD_TOKEN
+    # are stored in the Dev GitHub Environment
     environment: Dev
 
     steps:
@@ -127,6 +129,18 @@ jobs:
       #    "MAVEN_OPTS=$MAVEN_OPTS" | Out-File -FilePath $env:GITHUB_ENV -Append
 
 
+      # ============================================================
+      # Maven PATH configuration for Windows self-hosted runner
+      # ============================================================
+      - name: Configure Maven
+        shell: powershell
+        run: |
+          $MAVEN_HOME = "C:\apache-maven-3.9.16-bin\apache-maven-3.9.16"
+
+          "MAVEN_HOME=$MAVEN_HOME" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "$MAVEN_HOME\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+
       - name: display variables
         working-directory: ${{runner.temp}}
         shell: powershell
@@ -143,6 +157,7 @@ jobs:
           echo "CI_SERVER_HOST: ${{vars.CI_SERVER_HOST}}"
           echo "CI_REPO_NAME: ${{env.CI_REPO_NAME}}"
           echo "MAVEN_SETTINGS: ${{env.MAVEN_SETTINGS}}"
+          echo "MAVEN_OPTS: $env:MAVEN_OPTS"
           echo "**************************** VARIABLES ****************************"
 
 
@@ -186,15 +201,7 @@ jobs:
         working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
         shell: powershell
         run: |
-          mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} `
-            -U `
-            -f ${{env.CI_REPO_NAME}}/sample_pom.xml `
-            org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms `
-            $env:MAVEN_OPTS `
-            -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000 `
-            -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000 `
-            -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000 `
-            -Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5
+          mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.CI_REPO_NAME}}/sample_pom.xml org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms $env:MAVEN_OPTS -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000 -Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5
 
 
       # Build test and publish on Talend on-prem or Talend Cloud
@@ -202,18 +209,7 @@ jobs:
         working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
         shell: powershell
         run: |
-          mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} `
-            -U `
-            -f ${{env.PROJECT_NAME}}/poms/pom.xml `
-            ${{env.MAVEN_PLUGIN}} `
-            clean deploy `
-            -e `
-            -pl ${{env.JOB_LIST}} `
-            -am `
-            -ff `
-            $env:MAVEN_OPTS `
-            -DaltReleaseDeploymentRepository=releases::default::${{vars.ARTIFACT_URL}}/repository/releases/ `
-            -DaltSnapshotDeploymentRepository=snapshots::default::${{vars.ARTIFACT_URL}}/repository/snapshots/
+          mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.PROJECT_NAME}}/poms/pom.xml ${{env.MAVEN_PLUGIN}} clean deploy -e -pl ${{env.JOB_LIST}} -am -ff $env:MAVEN_OPTS -DaltReleaseDeploymentRepository=releases::default::${{vars.ARTIFACT_URL}}/repository/releases/ -DaltSnapshotDeploymentRepository=snapshots::default::${{vars.ARTIFACT_URL}}/repository/snapshots/
 
 
       ## Build test and publish on Docker
@@ -221,14 +217,4 @@ jobs:
       #  working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
       #  shell: powershell
       #  run: |
-      #    mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} `
-      #      -U `
-      #      -f ${{env.PROJECT_NAME}}/poms/pom.xml `
-      #      ${{env.MAVEN_PLUGIN}} `
-      #      clean deploy `
-      #      -e `
-      #      -pl ${{env.JOB_LIST}} `
-      #      -am `
-      #      -ff `
-      #      $env:MAVEN_OPTS `
-      #      -Dtalend.docker.name=${{env.DOCKER_IMG}}
+      #    mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.PROJECT_NAME}}/poms/pom.xml ${{env.MAVEN_PLUGIN}} clean deploy -e -pl ${{env.JOB_LIST}} -am -ff $env:MAVEN_OPTS -Dtalend.docker.name=${{env.DOCKER_IMG}}
