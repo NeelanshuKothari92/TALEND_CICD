@@ -11,7 +11,7 @@ env:
   # Talend project name
   PROJECT_NAME: "TALEND_CICD"
 
-  # Shared GitHub project for CI shared files (lowercase)
+  # Shared Git project for CI shared files
   CI_REPO_NAME: "talend_cicd"
 
   GIT_MAIN_PROJECT_BRANCH: "main"
@@ -22,8 +22,6 @@ env:
   # GIT_MAIN_REF_PROJECT_PATH: "referenceproject"
 
   ############ JOB FILTER ####################
-  # Variable corresponding to the specific artifact you want to build.
-  # Comma separator if more than one.
   JOB_LIST: "jobs/process/mydemo_0.1"
 
   ############# MAVEN OPTIONS ################
@@ -50,12 +48,14 @@ env:
 # A workflow run is made up of one or more jobs
 jobs:
 
-  # This workflow contains a job called "display-variables"
   display-variables:
     name: launch build & deploy
 
     # The type of runner that the job will run on
     runs-on: self-hosted
+
+    # Required so Dev environment secrets are available
+    environment: Dev
 
     steps:
 
