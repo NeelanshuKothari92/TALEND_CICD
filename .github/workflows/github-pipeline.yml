@@ -51,10 +51,9 @@ jobs:
   display-variables:
     name: launch build & deploy
 
-    # The type of runner that the job will run on
     runs-on: self-hosted
 
-    # Required so Dev environment secrets are available
+    # Required for Dev environment secrets
     environment: Dev
 
     steps:
@@ -62,56 +61,75 @@ jobs:
       ### TO DECOMMENT WHEN USING TALEND ON-PREM
       #- name: set MAVEN_OPS variable for Talend on-prem
       #  working-directory: ${{runner.temp}}
-      #  run: echo "MAVEN_OPTS=$(echo -Dinstaller.clean=true   \
-      #          -Dlicense.path=${{env.CI_REPO_NAME}}/license  \
-      #          -Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}  \
-      #          -Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}  \
-      #          -Dgeneration.type=local  \
-      #          -Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}  \
-      #          -Dproduct.path=${{vars.CI_PRODUCT_PATH}}  \
-      #          -Dorg.slf4j.simpleLogger.showDateTime=true   \
-      #          -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS)" >> $GITHUB_ENV
+      #  shell: powershell
+      #  run: |
+      #    $MAVEN_OPTS = @(
+      #      "-Dinstaller.clean=true"
+      #      "-Dlicense.path=${{env.CI_REPO_NAME}}/license"
+      #      "-Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}"
+      #      "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}"
+      #      "-Dgeneration.type=local"
+      #      "-Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}"
+      #      "-Dproduct.path=${{vars.CI_PRODUCT_PATH}}"
+      #      "-Dorg.slf4j.simpleLogger.showDateTime=true"
+      #      "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
+      #    ) -join " "
+      #
+      #    "MAVEN_OPTS=$MAVEN_OPTS" | Out-File -FilePath $env:GITHUB_ENV -Append
 
 
       ### TO DECOMMENT WHEN USING TALEND CLOUD
       - name: set MAVEN_OPS variable for Talend
         working-directory: ${{runner.temp}}
-        run: echo "MAVEN_OPTS=$(echo -Dinstaller.clean=true  \
-                -Dlicense.path=${{env.CI_REPO_NAME}}/license  \
-                -Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}  \
-                -Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}  \
-                -Dgeneration.type=local \
-                -Dservice.url=${{vars.TALEND_CLOUD_URL}} \
-                -Dcloud.token=${{secrets.TALEND_CLOUD_TOKEN}} \
-                -Dcloud.publisher.screenshot=true \
-                -Dcloud.publisher.updateFlow=true \
-                -Dcloud.publisher.environment=${{env.TALEND_CLOUD_ENV}} \
-                -Dcloud.publisher.workspace=${{env.TALEND_CLOUD_WORKSPACE}} \
-                -Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}  \
-                -Dproduct.path=${{vars.CI_PRODUCT_PATH}}  \
-                -Dorg.slf4j.simpleLogger.showDateTime=true   \
-                -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS)" >> $GITHUB_ENV
+        shell: powershell
+        run: |
+          $MAVEN_OPTS = @(
+            "-Dinstaller.clean=true"
+            "-Dlicense.path=${{env.CI_REPO_NAME}}/license"
+            "-Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}"
+            "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}"
+            "-Dgeneration.type=local"
+            "-Dservice.url=${{vars.TALEND_CLOUD_URL}}"
+            "-Dcloud.token=${{secrets.TALEND_CLOUD_TOKEN}}"
+            "-Dcloud.publisher.screenshot=true"
+            "-Dcloud.publisher.updateFlow=true"
+            "-Dcloud.publisher.environment=${{env.TALEND_CLOUD_ENV}}"
+            "-Dcloud.publisher.workspace=${{env.TALEND_CLOUD_WORKSPACE}}"
+            "-Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}"
+            "-Dproduct.path=${{vars.CI_PRODUCT_PATH}}"
+            "-Dorg.slf4j.simpleLogger.showDateTime=true"
+            "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
+          ) -join " "
+
+          "MAVEN_OPTS=$MAVEN_OPTS" | Out-File -FilePath $env:GITHUB_ENV -Append
 
 
       ### TO DECOMMENT WHEN USING DOCKER
       #- name: set MAVEN_OPS variable for Docker
       #  working-directory: ${{runner.temp}}
-      #  run: echo "MAVEN_OPTS=$(echo -Dinstaller.clean=true   \
-      #          -Dlicense.path=${{env.CI_REPO_NAME}}/license  \
-      #          -Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}  \
-      #          -Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}  \
-      #          -Dgeneration.type=local  \
-      #          -Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}  \
-      #          -Dproduct.path=${{vars.CI_PRODUCT_PATH}}  \
-      #          -Djkube.docker.push.registry=${{vars.docker_registry}} \
-      #          -Djkube.docker.username=${{vars.docker_username}} \
-      #          -Djkube.docker.password=${{secrets.docker_password}}\
-      #          -Dorg.slf4j.simpleLogger.showDateTime=true   \
-      #          -Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS)" >> $GITHUB_ENV
+      #  shell: powershell
+      #  run: |
+      #    $MAVEN_OPTS = @(
+      #      "-Dinstaller.clean=true"
+      #      "-Dlicense.path=${{env.CI_REPO_NAME}}/license"
+      #      "-Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}"
+      #      "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}"
+      #      "-Dgeneration.type=local"
+      #      "-Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}"
+      #      "-Dproduct.path=${{vars.CI_PRODUCT_PATH}}"
+      #      "-Djkube.docker.push.registry=${{vars.docker_registry}}"
+      #      "-Djkube.docker.username=${{vars.docker_username}}"
+      #      "-Djkube.docker.password=${{secrets.docker_password}}"
+      #      "-Dorg.slf4j.simpleLogger.showDateTime=true"
+      #      "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
+      #    ) -join " "
+      #
+      #    "MAVEN_OPTS=$MAVEN_OPTS" | Out-File -FilePath $env:GITHUB_ENV -Append
 
 
       - name: display variables
         working-directory: ${{runner.temp}}
+        shell: powershell
         run: |
           echo "**************************** VARIABLES ****************************"
           echo "ARTIFACT_URL: ${{vars.ARTIFACT_URL}}"
@@ -125,7 +143,6 @@ jobs:
           echo "CI_SERVER_HOST: ${{vars.CI_SERVER_HOST}}"
           echo "CI_REPO_NAME: ${{env.CI_REPO_NAME}}"
           echo "MAVEN_SETTINGS: ${{env.MAVEN_SETTINGS}}"
-          echo "MAVEN_OPTS: ${{env.MAVEN_OPTS}}"
           echo "**************************** VARIABLES ****************************"
 
 
@@ -158,6 +175,7 @@ jobs:
       # maven_settings.xml.gpg to maven_settings.xml
       - name: decrypt files
         working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
+        shell: powershell
         run: |
           gpg --quiet --batch --yes --decrypt --passphrase="${{secrets.LARGE_SECRET_PASSPHRASE}}" --output ${{env.CI_REPO_NAME}}/license ${{env.CI_REPO_NAME}}/license.gpg
           gpg --quiet --batch --yes --decrypt --passphrase="${{secrets.LARGE_SECRET_PASSPHRASE}}" --output ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}}.gpg
@@ -166,16 +184,51 @@ jobs:
       # Install P2 and generate poms
       - name: install P2 and generate poms
         working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
-        run: mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.CI_REPO_NAME}}/sample_pom.xml org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms ${{env.MAVEN_OPTS}} -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000 -Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5
+        shell: powershell
+        run: |
+          mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} `
+            -U `
+            -f ${{env.CI_REPO_NAME}}/sample_pom.xml `
+            org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms `
+            $env:MAVEN_OPTS `
+            -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000 `
+            -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000 `
+            -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000 `
+            -Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5
 
 
       # Build test and publish on Talend on-prem or Talend Cloud
       - name: build and deploy to artifact repository
         working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
-        run: mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.PROJECT_NAME}}/poms/pom.xml ${{env.MAVEN_PLUGIN}} clean deploy -e -pl ${{env.JOB_LIST}} -am -ff ${{env.MAVEN_OPTS}} -DaltReleaseDeploymentRepository=releases::default::${{vars.ARTIFACT_URL}}/repository/releases/ -DaltSnapshotDeploymentRepository=snapshots::default::${{vars.ARTIFACT_URL}}/repository/snapshots/
+        shell: powershell
+        run: |
+          mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} `
+            -U `
+            -f ${{env.PROJECT_NAME}}/poms/pom.xml `
+            ${{env.MAVEN_PLUGIN}} `
+            clean deploy `
+            -e `
+            -pl ${{env.JOB_LIST}} `
+            -am `
+            -ff `
+            $env:MAVEN_OPTS `
+            -DaltReleaseDeploymentRepository=releases::default::${{vars.ARTIFACT_URL}}/repository/releases/ `
+            -DaltSnapshotDeploymentRepository=snapshots::default::${{vars.ARTIFACT_URL}}/repository/snapshots/
 
 
       ## Build test and publish on Docker
       #- name: build and deploy to artifact repository
       #  working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
-      #  run: mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.PROJECT_NAME}}/poms/pom.xml ${{env.MAVEN_PLUGIN}} clean deploy -e -pl ${{env.JOB_LIST}} -am -ff ${{env.MAVEN_OPTS}} -Dtalend.docker.name=${{env.DOCKER_IMG}}
+      #  shell: powershell
+      #  run: |
+      #    mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} `
+      #      -U `
+      #      -f ${{env.PROJECT_NAME}}/poms/pom.xml `
+      #      ${{env.MAVEN_PLUGIN}} `
+      #      clean deploy `
+      #      -e `
+      #      -pl ${{env.JOB_LIST}} `
+      #      -am `
+      #      -ff `
+      #      $env:MAVEN_OPTS `
+      #      -Dtalend.docker.name=${{env.DOCKER_IMG}}
