@@ -19,46 +19,34 @@ env:
   # ----------------------------------------------------------
   # Talend project
   # ----------------------------------------------------------
-  # IMPORTANT:
-  # This must match the ACTUAL Talend project directory
-  # inside the Git checkout.
-  #
-  # GitHub repository:
-  #   TALEND_CICD
-  #
-  # Talend project:
-  #   talend_cicd
-  # ----------------------------------------------------------
-
   PROJECT_NAME: "TALEND_CICD"
   CI_REPO_NAME: "talend_cicd"
 
   # ----------------------------------------------------------
   # Git
   # ----------------------------------------------------------
-
   GIT_MAIN_PROJECT_BRANCH: "main"
   GIT_MAIN_PROJECT_PATH: "main"
 
   # ----------------------------------------------------------
   # Talend artifact
   # ----------------------------------------------------------
-
   JOB_LIST: "jobs/process/mydemo_0.1"
 
   # ----------------------------------------------------------
   # Maven
   # ----------------------------------------------------------
-
   MAVEN_SETTINGS: "maven_settings.xml"
 
   # ----------------------------------------------------------
   # Talend Cloud
   # ----------------------------------------------------------
-
   TALEND_CLOUD_ENV: "Dev"
   TALEND_CLOUD_WORKSPACE: "Cloud_Run"
 
+  # ----------------------------------------------------------
+  # Maven profile
+  # ----------------------------------------------------------
   MAVEN_PLUGIN: "-Pcloud-publisher"
 
 
@@ -166,23 +154,35 @@ jobs:
           Write-Host "Talend CI Variables"
           Write-Host "=============================================="
 
-          Write-Host "P2_BASE_URL = '${{ vars.P2_BASE_URL }}'"
+          Write-Host ""
           Write-Host "P2_UPDATE_URL = '${{ vars.P2_UPDATE_URL }}'"
-          Write-Host "P2_INSTALLER_PATH = '${{ vars.P2_INSTALLER_PATH }}'"
-          Write-Host "CI_PRODUCT_PATH = '${{ vars.CI_PRODUCT_PATH }}'"
           Write-Host "TALEND_CLOUD_URL = '${{ vars.TALEND_CLOUD_URL }}'"
           Write-Host "TALEND_CLOUD_ENV = '${{ env.TALEND_CLOUD_ENV }}'"
-          Write-Host "TALEND_CLOUD_WORKSPACE = '${{ env.TALEND_CLOUD_WORKSPACE }}"
+          Write-Host "TALEND_CLOUD_WORKSPACE = '${{ env.TALEND_CLOUD_WORKSPACE }}'"
+          Write-Host "BUILDER_MAVEN_PLUGIN_VERSION = '${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}'"
 
-          if (!(Test-Path "${{ vars.CI_PRODUCT_PATH }}")) {
-            Write-Error "CI_PRODUCT_PATH does not exist."
+          if ([string]::IsNullOrWhiteSpace("${{ vars.P2_UPDATE_URL }}")) {
+            Write-Error "P2_UPDATE_URL is empty."
             exit 1
           }
 
-          if (!(Test-Path "${{ vars.P2_INSTALLER_PATH }}")) {
-            Write-Error "P2_INSTALLER_PATH does not exist."
+          if ([string]::IsNullOrWhiteSpace("${{ vars.TALEND_CLOUD_URL }}")) {
+            Write-Error "TALEND_CLOUD_URL is empty."
             exit 1
           }
+
+          if ([string]::IsNullOrWhiteSpace("${{ env.TALEND_CLOUD_ENV }}")) {
+            Write-Error "TALEND_CLOUD_ENV is empty."
+            exit 1
+          }
+
+          if ([string]::IsNullOrWhiteSpace("${{ env.TALEND_CLOUD_WORKSPACE }}")) {
+            Write-Error "TALEND_CLOUD_WORKSPACE is empty."
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "Talend CI variables are valid."
 
 
       # ======================================================
@@ -198,25 +198,27 @@ jobs:
           Write-Host "Setting MAVEN_OPTS"
           Write-Host "=============================================="
 
-          # NOTE:
-          # Cloud Publisher parameters are deliberately NOT
-          # placed in MAVEN_OPTS.
+          # --------------------------------------------------
+          # IMPORTANT
           #
-          # They are passed explicitly to the final Maven
-          # clean/deploy command in step 11.
+          # Do NOT put Cloud Publisher parameters in MAVEN_OPTS.
           #
-          # This is required because the CI Builder-generated
-          # Maven invocation shown in the build log was not
-          # receiving the Cloud Publisher system properties
-          # from MAVEN_OPTS.
+          # They are passed directly to the final Maven build
+          # command in step 11.
+          #
+          # Do NOT use:
+          #   -Dproduct.path
+          #   -Dp2Installer.path
+          #   -Dtalend.studio.p2.base
+          #
+          # CI Builder can manage the CommandLine installation
+          # automatically.
+          # --------------------------------------------------
 
           $mavenOpts = @(
             "-Dlicense.path=${{ env.CI_REPO_NAME }}/license"
-            "-Dtalend.studio.p2.base=${{ vars.P2_BASE_URL }}"
             "-Dtalend.studio.p2.update=${{ vars.P2_UPDATE_URL }}"
             "-Dgeneration.type=local"
-            "-Dp2Installer.path=${{ vars.P2_INSTALLER_PATH }}"
-            "-Dproduct.path=${{ vars.CI_PRODUCT_PATH }}"
             "-Dorg.slf4j.simpleLogger.showDateTime=true"
             "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
           )
@@ -263,14 +265,7 @@ jobs:
           Write-Host "MAVEN"
 
           Write-Host "BUILDER_MAVEN_PLUGIN_VERSION: ${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}"
-          Write-Host "P2_BASE_URL: ${{ vars.P2_BASE_URL }}"
           Write-Host "P2_UPDATE_URL: ${{ vars.P2_UPDATE_URL }}"
-
-          Write-Host ""
-          Write-Host "Talend installation:"
-
-          Write-Host "CI_PRODUCT_PATH: ${{ vars.CI_PRODUCT_PATH }}"
-          Write-Host "P2_INSTALLER_PATH: ${{ vars.P2_INSTALLER_PATH }}"
 
           Write-Host ""
           Write-Host "JAVA_HOME: $env:JAVA_HOME"
@@ -285,102 +280,7 @@ jobs:
 
 
       # ======================================================
-      # 6. VALIDATE TALEND INSTALLATION
-      # ======================================================
-
-      - name: Validate Talend installation
-        shell: powershell
-
-        run: |
-
-          Write-Host ""
-          Write-Host "=============================================="
-          Write-Host "Validating Talend installation"
-          Write-Host "=============================================="
-
-          $productPath = "${{ vars.CI_PRODUCT_PATH }}"
-          $p2Path = "${{ vars.P2_INSTALLER_PATH }}"
-
-          $talendExe = Join-Path `
-            $productPath `
-            "Talend-Studio-win-x86_64.exe"
-
-          $commandLineBat = Join-Path `
-            $productPath `
-            "commandline.bat"
-
-          $bundlesInfo = Join-Path `
-            $productPath `
-            "configuration\org.eclipse.equinox.simpleconfigurator\bundles.info"
-
-          Write-Host ""
-          Write-Host "CI_PRODUCT_PATH:"
-          Write-Host $productPath
-
-          Write-Host ""
-          Write-Host "P2_INSTALLER_PATH:"
-          Write-Host $p2Path
-
-          Write-Host ""
-          Write-Host "Product directory exists:"
-          Write-Host (Test-Path $productPath)
-
-          Write-Host ""
-          Write-Host "P2 directory exists:"
-          Write-Host (Test-Path $p2Path)
-
-          Write-Host ""
-          Write-Host "Talend executable exists:"
-          Write-Host (Test-Path $talendExe)
-
-          Write-Host ""
-          Write-Host "commandline.bat exists:"
-          Write-Host (Test-Path $commandLineBat)
-
-          if (!(Test-Path $talendExe)) {
-            Write-Error "Talend executable not found: $talendExe"
-            exit 1
-          }
-
-          if (!(Test-Path $commandLineBat)) {
-            Write-Error "commandline.bat not found: $commandLineBat"
-            exit 1
-          }
-
-          Write-Host ""
-          Write-Host "Checking Talend CommandLine plugin registration..."
-
-          if (Test-Path $bundlesInfo) {
-
-            $matches = Select-String `
-              -Path $bundlesInfo `
-              -Pattern "org.talend.commandline"
-
-            if ($matches) {
-
-              $matches | ForEach-Object {
-                Write-Host $_.Line
-              }
-
-            }
-            else {
-
-              Write-Error "org.talend.commandline is not registered in bundles.info"
-              exit 1
-            }
-          }
-          else {
-
-            Write-Error "bundles.info not found: $bundlesInfo"
-            exit 1
-          }
-
-          Write-Host ""
-          Write-Host "Talend installation validation completed."
-
-
-      # ======================================================
-      # 7. VERIFY TALEND PROJECT STRUCTURE
+      # 6. VERIFY TALEND PROJECT STRUCTURE
       # ======================================================
 
       - name: Verify Talend project structure
@@ -395,17 +295,13 @@ jobs:
           Write-Host "Checking Talend project"
           Write-Host "=============================================="
 
-          # ==================================================
-          # HARD-CODED TEST PATH
-          #
           # The Git checkout is:
           #
           #   main\
           #       talend_cicd\
           #
-          # We intentionally bypass PROJECT_NAME here so
-          # filesystem/path resolution is not involved.
-          # ==================================================
+          # The physical directory remains talend_cicd.
+          # Talend project logical name is TALEND_CICD.
 
           $projectPath = ".\talend_cicd"
 
@@ -414,21 +310,8 @@ jobs:
           Get-Location
 
           Write-Host ""
-          Write-Host "Hard-coded Talend project path:"
+          Write-Host "Talend project path:"
           Write-Host $projectPath
-
-          Write-Host ""
-          Write-Host "Resolved project path:"
-          $resolvedProjectPath = (Resolve-Path $projectPath).Path
-          Write-Host $resolvedProjectPath
-
-          Write-Host ""
-          Write-Host "Root directory contents:"
-          Get-ChildItem -Force
-
-          Write-Host ""
-          Write-Host "Talend project contents:"
-          Get-ChildItem $projectPath -Force
 
           if (!(Test-Path $projectPath)) {
             Write-Error "Talend project directory not found: $projectPath"
@@ -465,7 +348,7 @@ jobs:
 
 
       # ======================================================
-      # 8. DECRYPT LICENSE AND MAVEN SETTINGS
+      # 7. DECRYPT LICENSE AND MAVEN SETTINGS
       # ======================================================
 
       - name: Decrypt license and Maven settings
@@ -522,7 +405,7 @@ jobs:
 
 
       # ======================================================
-      # 9. INSTALL P2 AND GENERATE POMS
+      # 8. INSTALL P2 AND GENERATE POMS
       # ======================================================
 
       - name: Install P2 and generate POMs
@@ -538,20 +421,8 @@ jobs:
           Write-Host "=============================================="
 
           Write-Host ""
-          Write-Host "P2 Base URL:"
-          Write-Host "${{ vars.P2_BASE_URL }}"
-
-          Write-Host ""
           Write-Host "P2 Update URL:"
           Write-Host "${{ vars.P2_UPDATE_URL }}"
-
-          Write-Host ""
-          Write-Host "Product path:"
-          Write-Host "${{ vars.CI_PRODUCT_PATH }}"
-
-          Write-Host ""
-          Write-Host "P2 installer path:"
-          Write-Host "${{ vars.P2_INSTALLER_PATH }}"
 
           Write-Host ""
           Write-Host "Project expected by CI:"
@@ -606,7 +477,7 @@ jobs:
 
 
       # ======================================================
-      # 10. VERIFY GENERATED POM
+      # 9. VERIFY GENERATED POM
       # ======================================================
 
       - name: Verify generated POM
@@ -621,11 +492,10 @@ jobs:
           Write-Host "Checking generated POM"
           Write-Host "=============================================="
 
-          # HARD-CODED TEST PATH
           $pomPath = ".\talend_cicd\poms\pom.xml"
 
           Write-Host ""
-          Write-Host "Hard-coded POM path:"
+          Write-Host "Generated POM path:"
           Write-Host $pomPath
 
           if (!(Test-Path $pomPath)) {
@@ -644,7 +514,7 @@ jobs:
 
 
       # ======================================================
-      # 11. BUILD AND DEPLOY TO TALEND CLOUD
+      # 10. BUILD AND DEPLOY TO TALEND CLOUD
       # ======================================================
 
       - name: Build and deploy to Talend Cloud
@@ -663,11 +533,10 @@ jobs:
           Write-Host "Project: ${{ env.PROJECT_NAME }}"
           Write-Host "Physical project path: .\talend_cicd"
           Write-Host "Artifact: ${{ env.JOB_LIST }}"
-          Write-Host "Talend Cloud URL: ${{ vars.TALEND_CLOUD_URL }}"
           Write-Host "Environment: ${{ env.TALEND_CLOUD_ENV }}"
           Write-Host "Workspace: ${{ env.TALEND_CLOUD_WORKSPACE }}"
+          Write-Host "Talend Cloud URL: ${{ vars.TALEND_CLOUD_URL }}"
 
-          # HARD-CODED TEST PATH
           $pomPath = ".\talend_cicd\poms\pom.xml"
 
           if (!(Test-Path $pomPath)) {
@@ -675,17 +544,8 @@ jobs:
             exit 1
           }
 
-          Write-Host ""
-          Write-Host "POM:"
-          Write-Host $pomPath
-
           # --------------------------------------------------
-          # Read Cloud Publisher configuration
-          # directly from GitHub variables/secrets.
-          #
-          # IMPORTANT:
-          # These are passed explicitly to Maven below rather
-          # than relying on MAVEN_OPTS.
+          # Cloud Publisher configuration
           # --------------------------------------------------
 
           $serviceUrl = "${{ vars.TALEND_CLOUD_URL }}"
@@ -726,15 +586,17 @@ jobs:
           # --------------------------------------------------
           # IMPORTANT:
           #
-          # Talend documentation requires these properties
-          # as Maven build options for Cloud publication:
+          # These Cloud Publisher values are deliberately
+          # passed directly to Maven.
           #
+          # This follows Talend's documented CI Maven pattern:
+          #
+          # -Pcloud-publisher
           # -Dservice.url
           # -Dcloud.token
+          # -Dcloud.publisher.screenshot
           # -Dcloud.publisher.environment
           # -Dcloud.publisher.workspace
-          #
-          # They are therefore passed directly here.
           # --------------------------------------------------
 
           mvn `
