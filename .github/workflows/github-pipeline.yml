@@ -8,13 +8,30 @@ on:
 env:
   GITHUB_RUNNER: "self-hosted"
 
-  # Talend project name
+  # ============================================================
+  # TALEND PROJECT
+  # ============================================================
+
+  # Logical Talend project name
   PROJECT_NAME: "TALEND_CICD"
 
-  # Shared Git project for CI shared files
+  # Physical directory name in the Git repository
+  # The repository currently contains:
+  #
+  # talend_cicd
+  #   ├── talend.project
+  #   ├── jobs
+  #   ├── sample_pom.xml
+  #   ├── maven_settings.xml.gpg
+  #   └── license.gpg
+  #
   CI_REPO_NAME: "talend_cicd"
 
-  # Runtime folder name used by Talend on the Windows runner
+  # Runtime directory name used on the Windows runner.
+  #
+  # This is changed from talend_cicd to TALEND_CICD
+  # after checkout to avoid the Windows case-sensitivity
+  # conflict with the Talend project name.
   PROJECT_PATH: "TALEND_CICD"
 
   GIT_MAIN_PROJECT_BRANCH: "main"
@@ -48,110 +65,54 @@ env:
   # DOCKER_IMG: "xxxxx"
 
 
-# A workflow run is made up of one or more jobs
+# ============================================================
+# JOBS
+# ============================================================
+
 jobs:
 
   display-variables:
     name: launch build & deploy
 
-    # The type of runner that the job will run on
     runs-on: self-hosted
 
-    # Required because LARGE_SECRET_PASSPHRASE and TALEND_CLOUD_TOKEN
-    # are stored in the Dev GitHub Environment
+    # Required because LARGE_SECRET_PASSPHRASE and
+    # TALEND_CLOUD_TOKEN are stored in the Dev GitHub Environment
     environment: Dev
 
     steps:
 
-      ### TO DECOMMENT WHEN USING TALEND ON-PREM
-      #- name: set MAVEN_OPS variable for Talend on-prem
-      #  working-directory: ${{runner.temp}}
-      #  shell: powershell
-      #  run: |
-      #    $MAVEN_OPTS = @(
-      #      "-Dinstaller.clean=true"
-      #      "-Dlicense.path=${{env.CI_REPO_NAME}}/license"
-      #      "-Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}"
-      #      "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}"
-      #      "-Dgeneration.type=local"
-      #      "-Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}"
-      #      "-Dproduct.path=${{vars.CI_PRODUCT_PATH}}"
-      #      "-Dorg.slf4j.simpleLogger.showDateTime=true"
-      #      "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
-      #    ) -join " "
-      #
-      #    "MAVEN_OPTS=$MAVEN_OPTS" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-
-      ### TO DECOMMENT WHEN USING TALEND CLOUD
-      - name: set MAVEN_OPS variable for Talend
-        working-directory: ${{runner.temp}}
-        shell: powershell
-        run: |
-          $MAVEN_OPTS = @(
-            "-Dinstaller.clean=true"
-            "-Dlicense.path=${{env.CI_REPO_NAME}}/license"
-            "-Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}"
-            "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}"
-            "-Dgeneration.type=local"
-            "-Dservice.url=${{vars.TALEND_CLOUD_URL}}"
-            "-Dcloud.token=${{secrets.TALEND_CLOUD_TOKEN}}"
-            "-Dcloud.publisher.screenshot=true"
-            "-Dcloud.publisher.updateFlow=true"
-            "-Dcloud.publisher.environment=${{env.TALEND_CLOUD_ENV}}"
-            "-Dcloud.publisher.workspace=${{env.TALEND_CLOUD_WORKSPACE}}"
-            "-Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}"
-            "-Dproduct.path=${{vars.CI_PRODUCT_PATH}}"
-            "-Dorg.slf4j.simpleLogger.showDateTime=true"
-            "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
-          ) -join " "
-
-          "MAVEN_OPTS=$MAVEN_OPTS" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-
-      ### TO DECOMMENT WHEN USING DOCKER
-      #- name: set MAVEN_OPS variable for Docker
-      #  working-directory: ${{runner.temp}}
-      #  shell: powershell
-      #  run: |
-      #    $MAVEN_OPTS = @(
-      #      "-Dinstaller.clean=true"
-      #      "-Dlicense.path=${{env.CI_REPO_NAME}}/license"
-      #      "-Dtalend.studio.p2.base=${{vars.P2_BASE_URL}}"
-      #      "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}"
-      #      "-Dgeneration.type=local"
-      #      "-Dp2Installer.path=${{vars.P2_INSTALLER_PATH}}"
-      #      "-Dproduct.path=${{vars.CI_PRODUCT_PATH}}"
-      #      "-Djkube.docker.push.registry=${{vars.docker_registry}}"
-      #      "-Djkube.docker.username=${{vars.docker_username}}"
-      #      "-Djkube.docker.password=${{secrets.docker_password}}"
-      #      "-Dorg.slf4j.simpleLogger.showDateTime=true"
-      #      "-Dorg.slf4j.simpleLogger.dateTimeFormat=HH:mm:ss,SSS"
-      #    ) -join " "
-      #
-      #    "MAVEN_OPTS=$MAVEN_OPTS" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-
       # ============================================================
-      # Maven PATH configuration for Windows self-hosted runner
+      # 1. CONFIGURE MAVEN
       # ============================================================
+
       - name: Configure Maven
         shell: powershell
         run: |
+
           $MAVEN_HOME = "C:\apache-maven-3.9.16-bin\apache-maven-3.9.16"
 
-          "MAVEN_HOME=$MAVEN_HOME" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "$MAVEN_HOME\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "MAVEN_HOME=$MAVEN_HOME" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Append
 
+          "$MAVEN_HOME\bin" | Out-File `
+            -FilePath $env:GITHUB_PATH `
+            -Append
+
+
+      # ============================================================
+      # 2. DISPLAY VARIABLES
+      # ============================================================
 
       - name: display variables
         working-directory: ${{runner.temp}}
         shell: powershell
         run: |
+
           echo "**************************** VARIABLES ****************************"
           echo "ARTIFACT_URL: ${{vars.ARTIFACT_URL}}"
           echo "BUILDER_MAVEN_PLUGIN_VERSION: ${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}"
-          echo "P2_BASE_URL: ${{vars.P2_BASE_URL}}"
           echo "P2_UPDATE_URL: ${{vars.P2_UPDATE_URL}}"
           echo "TALEND_CLOUD_URL: ${{vars.TALEND_CLOUD_URL}}"
           echo "TALEND_CLOUD_ENV: ${{env.TALEND_CLOUD_ENV}}"
@@ -163,16 +124,24 @@ jobs:
           echo "PROJECT_PATH: ${{env.PROJECT_PATH}}"
           echo "GIT_MAIN_PROJECT_PATH: ${{env.GIT_MAIN_PROJECT_PATH}}"
           echo "MAVEN_SETTINGS: ${{env.MAVEN_SETTINGS}}"
-          echo "MAVEN_OPTS: $env:MAVEN_OPTS"
           echo "**************************** VARIABLES ****************************"
-      
+
+
+      # ============================================================
+      # 3. GIT CASE CONFIGURATION
+      # ============================================================
+
       - name: Fix Git case sensitivity (Windows)
         shell: powershell
         run: |
+
           git config --global core.ignorecase true
 
 
-      ### Get CI common files from the CI project
+      # ============================================================
+      # 4. CHECKOUT TALEND PROJECT
+      # ============================================================
+
       - name: Git Checkout
         uses: actions/checkout@v3
         with:
@@ -182,17 +151,9 @@ jobs:
 
 
       # ============================================================
-      # Prepare Talend project directory
-      #
-      # Repository directory:
-      #   main\talend_cicd
-      #
-      # Talend project name:
-      #   TALEND_CICD
-      #
-      # Windows is case-insensitive, so a direct case-only rename
-      # is avoided by using a temporary name first.
+      # 5. PREPARE TALEND PROJECT DIRECTORY
       # ============================================================
+
       - name: Prepare Talend project directory
         shell: powershell
         working-directory: ${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}
@@ -208,7 +169,8 @@ jobs:
           Write-Host "Found Talend project:"
           Write-Host "${{env.CI_REPO_NAME}}\talend.project"
 
-          # Force a real rename on Windows by using a temporary name.
+          # Windows is case-insensitive.
+          # Force a physical rename through a temporary name.
           Rename-Item `
             "${{env.CI_REPO_NAME}}" `
             "__TALEND_CICD_TEMP__"
@@ -230,29 +192,14 @@ jobs:
           Write-Host ""
           Write-Host "Talend project directory is now:"
           Write-Host "${{env.PROJECT_PATH}}"
-          Write-Host ""
+
           Write-Host "Talend project directory prepared successfully."
 
 
-      ### TO DECOMMENT IF USING A REFERENCE PROJECT
-      ### Git checkout for reference project
-      #- name: Git Checkout reference project repo
-      #  uses: actions/checkout@v3
-      #  with:
-      #    repository: TalendPS/referenceproject
-      #    ref: ${{env.GIT_MAIN_REF_PROJECT_BRANCH}}
-      #    path: ${{env.GIT_MAIN_REF_PROJECT_PATH}}
-      #    token: ${{secrets.CI_JOB_USER_PASSWORD}}
-
-
-      ### TO DECOMMENT IF USING A REFERENCE PROJECT
-      #- name: Copy reference project to main project
-      #  run: cp -r ${{ github.workspace }}/${{env.GIT_MAIN_REF_PROJECT_PATH}}/* ${{ github.workspace }}/${{env.GIT_MAIN_PROJECT_PATH}}/
-
-
       # ============================================================
-      # Verify Talend project structure
+      # 6. VERIFY TALEND PROJECT STRUCTURE
       # ============================================================
+
       - name: Verify Talend project structure
         working-directory: ${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}
         shell: powershell
@@ -294,8 +241,9 @@ jobs:
 
 
       # ============================================================
-      # Decrypt files
+      # 7. DECRYPT LICENSE AND MAVEN SETTINGS
       # ============================================================
+
       - name: decrypt files
         working-directory: ${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}\${{env.PROJECT_PATH}}
         shell: powershell
@@ -329,21 +277,33 @@ jobs:
             exit 1
           }
 
+          Write-Host "Talend CI files decrypted successfully."
+
 
       # ============================================================
-      # Install P2 and generate poms
+      # 8. INSTALL P2 AND GENERATE POMS
       # ============================================================
+
       - name: install P2 and generate poms
         working-directory: ${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}
         shell: powershell
         run: |
+
+          Write-Host "=============================================="
+          Write-Host "Installing P2 and generating POMs"
+          Write-Host "=============================================="
 
           mvn -X `
             -s "${{env.PROJECT_PATH}}\${{env.MAVEN_SETTINGS}}" `
             -U `
             -f "${{env.PROJECT_PATH}}\sample_pom.xml" `
             "org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms" `
-            $env:MAVEN_OPTS `
+            "-Dinstaller.clean=false" `
+            "-Dlicense.path=${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}\${{env.PROJECT_PATH}}\license" `
+            "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}" `
+            "-Dgeneration.type=local" `
+            "-Dworkspace=${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}" `
+            "-DprojectFilter=${{env.PROJECT_NAME}}" `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000" `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000" `
             "-Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000" `
@@ -354,10 +314,14 @@ jobs:
             exit 1
           }
 
+          Write-Host ""
+          Write-Host "P2 installation and POM generation completed."
+
 
       # ============================================================
-      # Verify generated POM
+      # 9. VERIFY GENERATED POM
       # ============================================================
+
       - name: Verify generated POM
         working-directory: ${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}
         shell: powershell
@@ -376,8 +340,9 @@ jobs:
 
 
       # ============================================================
-      # Build test and publish on Talend Cloud
+      # 10. BUILD AND DEPLOY TO TALEND CLOUD
       # ============================================================
+
       - name: build and deploy to artifact repository
         working-directory: ${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}
         shell: powershell
@@ -404,19 +369,43 @@ jobs:
             -pl "${{env.JOB_LIST}}" `
             -am `
             -ff `
-            $env:MAVEN_OPTS `
-            "-DaltReleaseDeploymentRepository=releases::default::${{vars.ARTIFACT_URL}}/repository/releases/" `
-            "-DaltSnapshotDeploymentRepository=snapshots::default::${{vars.ARTIFACT_URL}}/repository/snapshots/"
+            "-Dlicense.path=${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}\${{env.PROJECT_PATH}}\license" `
+            "-Dtalend.studio.p2.update=${{vars.P2_UPDATE_URL}}" `
+            "-Dgeneration.type=local" `
+            "-Dservice.url=${{vars.TALEND_CLOUD_URL}}" `
+            "-Dcloud.token=${{secrets.TALEND_CLOUD_TOKEN}}" `
+            "-Dcloud.publisher.screenshot=true" `
+            "-Dcloud.publisher.updateFlow=true" `
+            "-Dcloud.publisher.environment=${{env.TALEND_CLOUD_ENV}}" `
+            "-Dcloud.publisher.workspace=${{env.TALEND_CLOUD_WORKSPACE}}"
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Talend build/deployment failed."
             exit 1
           }
 
+          Write-Host ""
+          Write-Host "=============================================="
+          Write-Host "Talend build and deployment completed."
+          Write-Host "=============================================="
 
-      ## Build test and publish on Docker
+
+      ## ============================================================
+      ## DOCKER VERSION - NOT ENABLED
+      ## ============================================================
+
       #- name: build and deploy to artifact repository
-      #  working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
+      #  working-directory: ${{github.workspace}}\${{env.GIT_MAIN_PROJECT_PATH}}
       #  shell: powershell
       #  run: |
-      #    mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.PROJECT_NAME}}/poms/pom.xml ${{env.MAVEN_PLUGIN}} clean deploy -e -pl ${{env.JOB_LIST}} -am -ff $env:MAVEN_OPTS -Dtalend.docker.name=${{env.DOCKER_IMG}}
+      #    mvn `
+      #      -s "${{env.PROJECT_PATH}}\${{env.MAVEN_SETTINGS}}" `
+      #      -U `
+      #      -f "${{env.PROJECT_PATH}}\poms\pom.xml" `
+      #      "${{env.MAVEN_PLUGIN}}" `
+      #      clean deploy `
+      #      -e `
+      #      -pl "${{env.JOB_LIST}}" `
+      #      -am `
+      #      -ff `
+      #      "-Dtalend.docker.name=${{env.DOCKER_IMG}}"
