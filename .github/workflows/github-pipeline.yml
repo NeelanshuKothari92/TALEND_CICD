@@ -201,7 +201,7 @@ jobs:
         working-directory: ${{github.workspace}}/${{env.GIT_MAIN_PROJECT_PATH}}
         shell: powershell
         run: |
-          mvn -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.CI_REPO_NAME}}/sample_pom.xml org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms $env:MAVEN_OPTS -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000 -Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5
+          mvn -X -s ${{env.CI_REPO_NAME}}/${{env.MAVEN_SETTINGS}} -U -f ${{env.CI_REPO_NAME}}/sample_pom.xml org.talend.ci:builder-maven-plugin:${{vars.BUILDER_MAVEN_PLUGIN_VERSION}}:generateAllPoms $env:MAVEN_OPTS -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.connectTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.retrieve.readTimeout=120000 -Dinstall.org.eclipse.ecf.provider.filetransfer.httpclient4.browse.connectTimeout=120000 -Dinstall.org.eclipse.equinox.p2.transport.ecf.retry=5
 
 
       # Build test and publish on Talend on-prem or Talend Cloud
