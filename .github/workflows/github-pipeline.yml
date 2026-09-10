@@ -19,35 +19,45 @@ env:
   # ----------------------------------------------------------
   # Talend project
   # ----------------------------------------------------------
+
   PROJECT_NAME: "TALEND_CICD"
   CI_REPO_NAME: "talend_cicd"
 
   # ----------------------------------------------------------
   # Git
   # ----------------------------------------------------------
+
   GIT_MAIN_PROJECT_BRANCH: "main"
   GIT_MAIN_PROJECT_PATH: "main"
 
   # ----------------------------------------------------------
   # Talend artifact
   # ----------------------------------------------------------
+
   JOB_LIST: "jobs/process/mydemo_0.1"
 
   # ----------------------------------------------------------
   # Maven
   # ----------------------------------------------------------
+
   MAVEN_SETTINGS: "maven_settings.xml"
 
   # ----------------------------------------------------------
   # Talend Cloud
   # ----------------------------------------------------------
+
   TALEND_CLOUD_ENV: "Dev"
   TALEND_CLOUD_WORKSPACE: "Cloud_Run"
 
   # ----------------------------------------------------------
-  # Maven profile
+  # Maven profiles
+  #
+  # Deploy to BOTH:
+  #   - Nexus
+  #   - Talend Cloud
   # ----------------------------------------------------------
-  MAVEN_PLUGIN: "-Pcloud-publisher"
+
+  MAVEN_PLUGIN: "-Pnexus,cloud-publisher"
 
 
 # ============================================================
@@ -140,7 +150,81 @@ jobs:
 
 
       # ======================================================
-      # 3. CHECK TALEND CI VARIABLES
+      # 3. VERIFY GIT MAIN BRANCH AND MYDEMO
+      # ======================================================
+
+      - name: Verify Git main branch and mydemo
+        shell: powershell
+
+        working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
+
+        run: |
+
+          Write-Host "=============================================="
+          Write-Host "Verifying Git checkout"
+          Write-Host "=============================================="
+
+          Write-Host ""
+          Write-Host "Branch:"
+          git branch --show-current
+
+          Write-Host ""
+          Write-Host "HEAD:"
+          git rev-parse HEAD
+
+          Write-Host ""
+          Write-Host "GitHub SHA:"
+          Write-Host "${{ github.sha }}"
+
+          Write-Host ""
+          Write-Host "Expected branch:"
+          Write-Host "${{ env.GIT_MAIN_PROJECT_BRANCH }}"
+
+          $currentBranch = git branch --show-current
+
+          if ($currentBranch -ne "${{ env.GIT_MAIN_PROJECT_BRANCH }}") {
+            Write-Error "Unexpected Git branch. Expected '${{ env.GIT_MAIN_PROJECT_BRANCH }}' but found '$currentBranch'."
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "Checking Talend process directory..."
+
+          if (!(Test-Path ".\talend_cicd\process")) {
+            Write-Error "Talend process directory not found."
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "Searching for mydemo..."
+
+          $mydemo = Get-ChildItem `
+            ".\talend_cicd\process" `
+            -Recurse `
+            -Force `
+            -ErrorAction SilentlyContinue |
+            Where-Object {
+              $_.Name -eq "mydemo_0.1.item" -or
+              $_.Name -eq "mydemo_0.1.properties" -or
+              $_.Name -eq "mydemo_0.1.screenshot"
+            }
+
+          if (!$mydemo) {
+            Write-Error "mydemo_0.1 was not found under talend_cicd\process."
+            exit 1
+          }
+
+          $mydemo | ForEach-Object {
+            Write-Host $_.FullName
+          }
+
+          Write-Host ""
+          Write-Host "mydemo_0.1 is present in the checked-out main branch."
+          Write-Host "=============================================="
+
+
+      # ======================================================
+      # 4. CHECK TALEND CI VARIABLES
       # ======================================================
 
       - name: Check Talend CI variables
@@ -159,6 +243,7 @@ jobs:
           Write-Host "TALEND_CLOUD_URL = '${{ vars.TALEND_CLOUD_URL }}'"
           Write-Host "TALEND_CLOUD_ENV = '${{ env.TALEND_CLOUD_ENV }}'"
           Write-Host "TALEND_CLOUD_WORKSPACE = '${{ env.TALEND_CLOUD_WORKSPACE }}'"
+          Write-Host "ARTIFACT_URL = '${{ vars.ARTIFACT_URL }}'"
           Write-Host "BUILDER_MAVEN_PLUGIN_VERSION = '${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}'"
 
           if ([string]::IsNullOrWhiteSpace("${{ vars.P2_UPDATE_URL }}")) {
@@ -168,6 +253,11 @@ jobs:
 
           if ([string]::IsNullOrWhiteSpace("${{ vars.TALEND_CLOUD_URL }}")) {
             Write-Error "TALEND_CLOUD_URL is empty."
+            exit 1
+          }
+
+          if ([string]::IsNullOrWhiteSpace("${{ vars.ARTIFACT_URL }}")) {
+            Write-Error "ARTIFACT_URL is empty."
             exit 1
           }
 
@@ -186,7 +276,7 @@ jobs:
 
 
       # ======================================================
-      # 4. SET MAVEN OPTIONS
+      # 5. SET MAVEN OPTIONS
       # ======================================================
 
       - name: Set MAVEN_OPTS for Talend Cloud
@@ -198,22 +288,11 @@ jobs:
           Write-Host "Setting MAVEN_OPTS"
           Write-Host "=============================================="
 
-          # --------------------------------------------------
-          # IMPORTANT
+          # Cloud Publisher and Nexus deployment parameters
+          # are passed directly to the final Maven command.
           #
-          # Do NOT put Cloud Publisher parameters in MAVEN_OPTS.
-          #
-          # They are passed directly to the final Maven build
-          # command in step 11.
-          #
-          # Do NOT use:
-          #   -Dproduct.path
-          #   -Dp2Installer.path
-          #   -Dtalend.studio.p2.base
-          #
-          # CI Builder can manage the CommandLine installation
-          # automatically.
-          # --------------------------------------------------
+          # MAVEN_OPTS contains only the common Talend
+          # build configuration.
 
           $mavenOpts = @(
             "-Dlicense.path=${{ env.CI_REPO_NAME }}/license"
@@ -234,7 +313,7 @@ jobs:
 
 
       # ======================================================
-      # 5. DISPLAY CONFIGURATION
+      # 6. DISPLAY CONFIGURATION
       # ======================================================
 
       - name: Display configuration
@@ -253,6 +332,7 @@ jobs:
           Write-Host "GIT_MAIN_PROJECT_PATH: ${{ env.GIT_MAIN_PROJECT_PATH }}"
           Write-Host "JOB_LIST: ${{ env.JOB_LIST }}"
           Write-Host "MAVEN_SETTINGS: ${{ env.MAVEN_SETTINGS }}"
+          Write-Host "MAVEN_PLUGIN: ${{ env.MAVEN_PLUGIN }}"
 
           Write-Host ""
           Write-Host "TALEND CLOUD"
@@ -260,6 +340,16 @@ jobs:
           Write-Host "TALEND_CLOUD_URL: ${{ vars.TALEND_CLOUD_URL }}"
           Write-Host "TALEND_CLOUD_ENV: ${{ env.TALEND_CLOUD_ENV }}"
           Write-Host "TALEND_CLOUD_WORKSPACE: ${{ env.TALEND_CLOUD_WORKSPACE }}"
+
+          Write-Host ""
+          Write-Host "NEXUS"
+
+          Write-Host "ARTIFACT_URL: ${{ vars.ARTIFACT_URL }}"
+          Write-Host "Release repository:"
+          Write-Host "${{ vars.ARTIFACT_URL }}/repository/maven-releases/"
+
+          Write-Host "Snapshot repository:"
+          Write-Host "${{ vars.ARTIFACT_URL }}/repository/maven-snapshots/"
 
           Write-Host ""
           Write-Host "MAVEN"
@@ -280,7 +370,7 @@ jobs:
 
 
       # ======================================================
-      # 6. VERIFY TALEND PROJECT STRUCTURE
+      # 7. VERIFY TALEND PROJECT STRUCTURE
       # ======================================================
 
       - name: Verify Talend project structure
@@ -294,14 +384,6 @@ jobs:
           Write-Host "=============================================="
           Write-Host "Checking Talend project"
           Write-Host "=============================================="
-
-          # The Git checkout is:
-          #
-          #   main\
-          #       talend_cicd\
-          #
-          # The physical directory remains talend_cicd.
-          # Talend project logical name is TALEND_CICD.
 
           $projectPath = ".\talend_cicd"
 
@@ -348,7 +430,7 @@ jobs:
 
 
       # ======================================================
-      # 7. DECRYPT LICENSE AND MAVEN SETTINGS
+      # 8. DECRYPT LICENSE AND MAVEN SETTINGS
       # ======================================================
 
       - name: Decrypt license and Maven settings
@@ -405,7 +487,7 @@ jobs:
 
 
       # ======================================================
-      # 8. INSTALL P2 AND GENERATE POMS
+      # 9. INSTALL P2 AND GENERATE POMS
       # ======================================================
 
       - name: Install P2 and generate POMs
@@ -477,7 +559,7 @@ jobs:
 
 
       # ======================================================
-      # 9. VERIFY GENERATED POM
+      # 10. VERIFY GENERATED POM
       # ======================================================
 
       - name: Verify generated POM
@@ -514,10 +596,10 @@ jobs:
 
 
       # ======================================================
-      # 10. BUILD AND DEPLOY TO TALEND CLOUD
+      # 11. BUILD AND DEPLOY TO NEXUS + TALEND CLOUD
       # ======================================================
 
-      - name: Build and deploy to Talend Cloud
+      - name: Build and deploy to Nexus and Talend Cloud
         shell: powershell
 
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
@@ -536,6 +618,11 @@ jobs:
           Write-Host "Environment: ${{ env.TALEND_CLOUD_ENV }}"
           Write-Host "Workspace: ${{ env.TALEND_CLOUD_WORKSPACE }}"
           Write-Host "Talend Cloud URL: ${{ vars.TALEND_CLOUD_URL }}"
+          Write-Host "Maven profiles: ${{ env.MAVEN_PLUGIN }}"
+
+          # --------------------------------------------------
+          # POM
+          # --------------------------------------------------
 
           $pomPath = ".\talend_cicd\poms\pom.xml"
 
@@ -545,12 +632,25 @@ jobs:
           }
 
           # --------------------------------------------------
-          # Cloud Publisher configuration
+          # Cloud Publisher
           # --------------------------------------------------
 
           $serviceUrl = "${{ vars.TALEND_CLOUD_URL }}"
           $cloudEnvironment = "${{ env.TALEND_CLOUD_ENV }}"
           $cloudWorkspace = "${{ env.TALEND_CLOUD_WORKSPACE }}"
+
+          # --------------------------------------------------
+          # Nexus
+          # --------------------------------------------------
+
+          $artifactUrl = "${{ vars.ARTIFACT_URL }}"
+
+          $releaseRepository = "${artifactUrl}/repository/maven-releases/"
+          $snapshotRepository = "${artifactUrl}/repository/maven-snapshots/"
+
+          # --------------------------------------------------
+          # Validation
+          # --------------------------------------------------
 
           if ([string]::IsNullOrWhiteSpace($serviceUrl)) {
             Write-Error "TALEND_CLOUD_URL is empty."
@@ -567,12 +667,22 @@ jobs:
             exit 1
           }
 
+          if ([string]::IsNullOrWhiteSpace($artifactUrl)) {
+            Write-Error "ARTIFACT_URL is empty."
+            exit 1
+          }
+
           Write-Host ""
           Write-Host "Cloud Publisher configuration:"
           Write-Host "service.url = $serviceUrl"
           Write-Host "cloud.publisher.environment = $cloudEnvironment"
           Write-Host "cloud.publisher.workspace = $cloudWorkspace"
           Write-Host "cloud.token = ********"
+
+          Write-Host ""
+          Write-Host "Nexus configuration:"
+          Write-Host "Release repository = $releaseRepository"
+          Write-Host "Snapshot repository = $snapshotRepository"
 
           Write-Host ""
           Write-Host "START TIME:"
@@ -584,19 +694,19 @@ jobs:
           Write-Host ""
 
           # --------------------------------------------------
-          # IMPORTANT:
+          # Maven build
           #
-          # These Cloud Publisher values are deliberately
-          # passed directly to Maven.
+          # -Pnexus,cloud-publisher
+          # means:
           #
-          # This follows Talend's documented CI Maven pattern:
+          #   1. Deploy artifact to Nexus
+          #   2. Publish artifact to Talend Cloud
           #
-          # -Pcloud-publisher
-          # -Dservice.url
-          # -Dcloud.token
-          # -Dcloud.publisher.screenshot
-          # -Dcloud.publisher.environment
-          # -Dcloud.publisher.workspace
+          # The artifact version determines which Nexus
+          # repository is used:
+          #
+          #   release  -> maven-releases
+          #   SNAPSHOT -> maven-snapshots
           # --------------------------------------------------
 
           mvn `
@@ -609,14 +719,14 @@ jobs:
             "-Dcloud.publisher.updateFlow=true" `
             "-Dcloud.publisher.environment=$cloudEnvironment" `
             "-Dcloud.publisher.workspace=$cloudWorkspace" `
+            "-DaltReleaseDeploymentRepository=releases::default::$releaseRepository" `
+            "-DaltSnapshotDeploymentRepository=snapshots::default::$snapshotRepository" `
             clean `
             deploy `
             -e `
             -pl "${{ env.JOB_LIST }}" `
             -am `
-            -ff `
-            "-DaltReleaseDeploymentRepository=releases::default::${{ vars.ARTIFACT_URL }}/repository/releases/" `
-            "-DaltSnapshotDeploymentRepository=snapshots::default::${{ vars.ARTIFACT_URL }}/repository/snapshots/"
+            -ff
 
           $exitCode = $LASTEXITCODE
 
