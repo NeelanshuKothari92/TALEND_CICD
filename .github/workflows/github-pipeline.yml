@@ -347,7 +347,7 @@ jobs:
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
         shell: powershell
         env:
-          TALEND_CLOUD_URL: "https://tmc.us.cloud.talend.com/inventory/"
+          TALEND_CLOUD_URL: "https://api.us.cloud.talend.com/"
           TALEND_CLOUD_TOKEN: ${{ secrets.TALEND_CLOUD_TOKEN }}
         run: |
 
