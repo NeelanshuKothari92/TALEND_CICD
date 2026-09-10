@@ -159,14 +159,16 @@ jobs:
           echo "MAVEN_SETTINGS: ${{env.MAVEN_SETTINGS}}"
           echo "MAVEN_OPTS: $env:MAVEN_OPTS"
           echo "**************************** VARIABLES ****************************"
-
-
+      
+      - name: Fix Git case sensitivity (Windows)
+        run: git config --global core.ignorecase true
       ### Get CI common files from the CI project
       - name: Git Checkout
         uses: actions/checkout@v3
         with:
           path: ${{env.GIT_MAIN_PROJECT_PATH}}
           ref: ${{env.GIT_MAIN_PROJECT_BRANCH}}
+          clean: true
 
 
       ### TO DECOMMENT IF USING A REFERENCE PROJECT
