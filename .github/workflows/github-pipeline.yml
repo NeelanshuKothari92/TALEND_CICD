@@ -12,12 +12,11 @@ env:
   # TALEND PROJECT
   # ============================================================
 
-  # Logical Talend project name
   PROJECT_NAME: "TALEND_CICD"
 
   # Physical directory name in the Git repository
   #
-  # The repository currently contains:
+  # Repository structure:
   #
   # talend_cicd
   #   ├── talend.project
@@ -30,8 +29,8 @@ env:
 
   # Runtime directory name used on the Windows runner.
   #
-  # This is changed from talend_cicd to TALEND_CICD
-  # after checkout to avoid the Talend/Windows case conflict.
+  # Changed from talend_cicd to TALEND_CICD after checkout
+  # to avoid the Talend project / Windows case conflict.
   PROJECT_PATH: "TALEND_CICD"
 
   GIT_MAIN_PROJECT_BRANCH: "main"
@@ -52,7 +51,6 @@ env:
   # MAVEN_PLUGIN: "-Pnexus"
 
   ### TALEND CLOUD #############################
-  TALEND_CLOUD_URL: "https://tmc.us.cloud.talend.com/inventory/"
   TALEND_CLOUD_ENV: "Dev"
   TALEND_CLOUD_WORKSPACE: "Cloud_Run"
 
@@ -76,8 +74,10 @@ jobs:
 
     runs-on: self-hosted
 
-    # Required because LARGE_SECRET_PASSPHRASE and
-    # TALEND_CLOUD_TOKEN are stored in the Dev GitHub Environment
+    # GitHub Environment containing:
+    # LARGE_SECRET_PASSPHRASE
+    # TALEND_CLOUD_TOKEN
+    # TALEND_CLOUD_URL
     environment: Dev
 
     steps:
@@ -114,7 +114,7 @@ jobs:
           echo "ARTIFACT_URL: ${{ vars.ARTIFACT_URL }}"
           echo "BUILDER_MAVEN_PLUGIN_VERSION: ${{ vars.BUILDER_MAVEN_PLUGIN_VERSION }}"
           echo "P2_UPDATE_URL: ${{ vars.P2_UPDATE_URL }}"
-          echo "TALEND_CLOUD_URL: ${{ env.TALEND_CLOUD_URL }}"
+          echo "TALEND_CLOUD_URL: ${{ vars.TALEND_CLOUD_URL }}"
           echo "TALEND_CLOUD_ENV: ${{ env.TALEND_CLOUD_ENV }}"
           echo "TALEND_CLOUD_WORKSPACE: ${{ env.TALEND_CLOUD_WORKSPACE }}"
           echo "CI_SERVER_PROTOCOL: ${{ vars.CI_SERVER_PROTOCOL }}"
@@ -347,7 +347,10 @@ jobs:
         working-directory: ${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}
         shell: powershell
         env:
-          TALEND_CLOUD_URL: "https://api.us.cloud.talend.com/"
+          # Read the URL from the GitHub Dev Environment variable
+          TALEND_CLOUD_URL: ${{ vars.TALEND_CLOUD_URL }}
+
+          # Read the token from the GitHub Dev Environment secret
           TALEND_CLOUD_TOKEN: ${{ secrets.TALEND_CLOUD_TOKEN }}
         run: |
 
@@ -355,10 +358,9 @@ jobs:
           Write-Host "Building and deploying Talend artifact"
           Write-Host "=============================================="
 
-          # --------------------------------------------------------
-          # Build the values inside PowerShell rather than relying
-          # on GitHub expression expansion inside the Maven command.
-          # --------------------------------------------------------
+          # ========================================================
+          # Read values from PowerShell environment variables
+          # ========================================================
 
           $serviceUrl = $env:TALEND_CLOUD_URL
           $cloudToken = $env:TALEND_CLOUD_TOKEN
@@ -372,22 +374,17 @@ jobs:
           Write-Host "Environment: $cloudEnvironment"
           Write-Host "Workspace: $cloudWorkspace"
 
-          # --------------------------------------------------------
-          # Validate required Cloud Publisher values before Maven.
-          # --------------------------------------------------------
+          # ========================================================
+          # Validate that GitHub supplied the values
+          # ========================================================
 
           if ([string]::IsNullOrWhiteSpace($serviceUrl)) {
-            Write-Error "TALEND_CLOUD_URL is empty."
-            exit 1
-          }
-
-          if ($serviceUrl -ne "https://tmc.us.cloud.talend.com/inventory/") {
-            Write-Error "Unexpected Talend Cloud service URL: $serviceUrl"
+            Write-Error "TALEND_CLOUD_URL is empty or was not supplied by the GitHub Environment."
             exit 1
           }
 
           if ([string]::IsNullOrWhiteSpace($cloudToken)) {
-            Write-Error "TALEND_CLOUD_TOKEN is empty."
+            Write-Error "TALEND_CLOUD_TOKEN is empty or was not supplied by the GitHub Environment."
             exit 1
           }
 
@@ -401,37 +398,53 @@ jobs:
             exit 1
           }
 
-          Write-Host "Talend Cloud publishing parameters validated successfully."
+          Write-Host "Talend Cloud publishing parameters are present."
 
-          # --------------------------------------------------------
-          # Pass every Maven -D property as an individual argument.
-          # This avoids the previous MAVEN_OPTS aggregation problem.
-          # --------------------------------------------------------
+          # ========================================================
+          # Build Maven arguments
+          #
+          # IMPORTANT:
+          # Each -D property is a separate Maven argument.
+          # ========================================================
 
           $mavenArgs = @(
             "-s"
             "${{ env.PROJECT_PATH }}\${{ env.MAVEN_SETTINGS }}"
+
             "-U"
+
             "-f"
             "${{ env.PROJECT_PATH }}\poms\pom.xml"
+
             "-Pcloud-publisher"
+
             "clean"
             "deploy"
+
             "-e"
+
             "-pl"
             "${{ env.JOB_LIST }}"
+
             "-am"
             "-ff"
 
             "-Dlicense.path=${{ github.workspace }}\${{ env.GIT_MAIN_PROJECT_PATH }}\${{ env.PROJECT_PATH }}\license"
+
             "-Dtalend.studio.p2.update=${{ vars.P2_UPDATE_URL }}"
+
             "-Dgeneration.type=local"
 
             "-Dservice.url=$serviceUrl"
+
             "-Dcloud.token=$cloudToken"
+
             "-Dcloud.publisher.screenshot=true"
+
             "-Dcloud.publisher.updateFlow=true"
+
             "-Dcloud.publisher.environment=$cloudEnvironment"
+
             "-Dcloud.publisher.workspace=$cloudWorkspace"
           )
 
